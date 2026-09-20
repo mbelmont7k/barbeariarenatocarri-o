@@ -42,8 +42,37 @@ function seed(){return{
  security:{users:[{id:'u1',name:'Super Admin',email:'admin@barbearia.com',passHash:hashSim('admin123'),role:'Super Admin',active:true,perms:['all'],lastAccess:null}],currentId:null,logs:[],sessions:[],autoLogoutMin:30,attempts:0,lockUntil:0,fa:false}
 };}
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.site&&d.services)return d;}catch(e){}const d=seed();localStorage.setItem(KEY,JSON.stringify(d));return d;}
-function save(){localStorage.setItem(KEY,JSON.stringify(DB));}
+function save(){localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}
 let DB=load();
+/* ===== NUVEM Supabase (multi-aparelhos) ===== */
+function cloudCfg(){try{const s=JSON.parse(localStorage.getItem('br_cloud')||'{}');return{url:s.url||window.SUPABASE_URL||'',key:s.key||window.SUPABASE_ANON_KEY||''};}catch(e){return{url:window.SUPABASE_URL||'',key:window.SUPABASE_ANON_KEY||''};}}
+function cloudOn(){const c=cloudCfg();return !!(c.url&&c.key);}
+async function sb(path,method,body){const c=cloudCfg();const r=await fetch(c.url+'/rest/v1/'+path,{method:method||'GET',headers:{apikey:c.key,Authorization:'Bearer '+c.key,'Content-Type':'application/json',Prefer:method==='POST'?'return=representation':undefined},body:body?JSON.stringify(body):undefined});if(!r.ok)throw new Error('Supabase '+r.status);return method==='GET'?r.json():r.json().catch(()=>[]);}
+let _pushT=null;
+async function cloudPush(){if(!cloudOn())return;clearTimeout(_pushT);_pushT=setTimeout(async()=>{
+ try{
+  const main={site:DB.site,images:{logo:DB.images.logo,cover:DB.images.cover,gallery:(DB.images.gallery||[]).slice(0,20)},contacts:DB.contacts,hours:DB.hours,services:DB.services,automation:DB.automation,security:{users:DB.security.users,autoLogoutMin:DB.security.autoLogoutMin}};
+  await sb('store?id=eq.main','PATCH',{data:main});
+  setCloudBadge('nuvem ok');
+ }catch(e){setCloudBadge('nuvem falha');}
+},800);}
+async function cloudPull(){if(!cloudOn())return false;try{
+ const s=await sb('store?id=eq.main&select=data');const remote=s[0]?.data;
+ const ap=await sb('appointments?select=*&order=date.asc,time.asc&limit=2000');
+ const bl=await sb('blocks?select=*&limit=500');
+ if(remote&&remote.site){const localAppts=DB.appointments,localBlks=DB.blocks;
+  DB.site=remote.site;DB.contacts=remote.contacts||DB.contacts;DB.hours=remote.hours||DB.hours;DB.services=remote.services||DB.services;DB.automation=remote.automation||DB.automation;
+  if(remote.images)DB.images=Object.assign(DB.images,remote.images);
+  if(remote.security)DB.security.users=remote.security.users||DB.security.users;
+  DB.appointments=(ap||[]).map(r=>({id:r.id,client:r.client,phone:r.phone,serviceId:r.service_id,barber:r.barber,date:r.date,time:r.time,end:r.end_time,note:r.note,status:r.status,createdAt:r.created_at}));
+  DB.blocks=(bl||[]).map(r=>({id:r.id,date:r.date,start:r.start_time,end:r.end_time,reason:r.reason}));
+  if(!DB.appointments.length&&localAppts.length){for(const a of localAppts)await cloudUpsertAppt(a);}
+  localStorage.setItem(KEY,JSON.stringify(DB));
+  return true;
+ }return false;}catch(e){return false;}}
+async function cloudUpsertAppt(a){const s=DB.services.find(x=>x.id===a.serviceId);await sb('appointments','POST',{id:a.id,client:a.client,phone:a.phone,service_id:a.serviceId,service_name:s?.name||'',price:s?.price||0,barber:a.barber||'Renato Carriço',date:a.date,time:a.time,end_time:a.end||'',note:a.note||'',status:a.status}).catch(()=>sb('appointments?id=eq.'+a.id,'PATCH',{client:a.client,phone:a.phone,service_id:a.serviceId,status:a.status,date:a.date,time:a.time,end_time:a.end,note:a.note||''}));}
+async function cloudDeleteAppt(id){if(!cloudOn())return;await fetch(cloudCfg().url+'/rest/v1/appointments?id=eq.'+id,{method:'DELETE',headers:{apikey:cloudCfg().key,Authorization:'Bearer '+cloudCfg().key}}).catch(()=>{});}
+function setCloudBadge(t){const e=$('#cloudBadge');if(e)e.textContent=t||(cloudOn()?'nuvem on':'modo local');}
 function slog(action,status){DB.security.logs.unshift({at:new Date().toLocaleString('pt-BR'),user:curAdmin()?.email||'public',action,ip:'local',status:status||'ok'});DB.security.logs=DB.security.logs.slice(0,200);save();}
 function curAdmin(){return DB.security.users.find(u=>u.id===DB.security.currentId)||null;}
 
@@ -98,13 +127,15 @@ function renderStep(){
   const price=Number(DB.services.find(s=>s.id===BK.serviceId)?.price||0);
   b.innerHTML=`<div class="summary"><b>Resumo</b><br>👤 ${BK.name} • ${BK.phone}<br>💈 ${svc.name} — ${money(price)}<br>📅 ${BK.date} às ${BK.time}<br>📍 ${DB.contacts.address}</div><div class="row"><button class="btn btn-ghost" id="bkBack">Voltar</button><button class="btn btn-bege" id="bkOk">CONFIRMAR</button></div><div class="err" id="bkErr"></div>`;
   $('#bkBack').onclick=()=>{BK.step=3;renderStep();};
-  $('#bkOk').onclick=()=>{
-   DB=load(); // anti-dupla: relê
+  $('#bkOk').onclick=async()=>{
+   await cloudPull();renderPublicBase();
    const slots=calculateAvailability(BK.date,svc.duration);
    if(!slots.includes(BK.time)){$('#bkErr').textContent='Esse horário acabou de ser ocupado. Escolha outro.';return;}
    if(DB.appointments.some(a=>a.phone===onlyDigits(BK.phone)&&a.date===BK.date&&a.time===BK.time&&a.status!=='cancelado')){$('#bkErr').textContent='Você já tem reserva neste horário.';return;}
-   DB.appointments.push({id:uid('a'),client:BK.name,phone:onlyDigits(BK.phone),serviceId:svc.id,barber:'Renato Carriço',date:BK.date,time:BK.time,end:toHM(toMin(BK.time)+svc.duration),note:'',status:'confirmado',createdAt:new Date().toISOString()});
+   const nap={id:uid('a'),client:BK.name,phone:onlyDigits(BK.phone),serviceId:svc.id,barber:'Renato Carriço',date:BK.date,time:BK.time,end:toHM(toMin(BK.time)+svc.duration),note:'',status:'confirmado',createdAt:new Date().toISOString()};
+   DB.appointments.push(nap);
    save();slog('Nova reserva pública '+BK.name+' '+BK.date+' '+BK.time);
+   if(cloudOn()){try{await cloudUpsertAppt(nap);}catch(e){}}
    b.innerHTML=`<div class="summary">✅ <b>${DB.site.msgSuccess}</b><br>${svc.name} • ${BK.date} ${BK.time}<br>Chegue com 5 min de antecedência.</div><button class="btn btn-bege" onclick="location.reload()">FAZER OUTRO AGENDAMENTO</button>`;
    toast('Agendado!');
   };}
@@ -211,6 +242,11 @@ function renderSec(b){const S=DB.security;const me=curAdmin();
  $$('#tabBody [data-kill]').forEach(x=>x.onclick=()=>{S.users&&(S.sessions=S.sessions.filter(s=>s.id!==x.dataset.kill));save();renderTab();});
  $('#s_auto').onchange=e=>{S.autoLogoutMin=Number(e.target.value)||30;save();};
  $('#s_2fa').onchange=e=>{S.fa=e.target.checked;save();renderTab();};
+ const cc=cloudCfg();
+ b.innerHTML+=`<div style="border:1px solid var(--gold);border-radius:10px;padding:12px;margin-top:12px"><b>☁️ Nuvem / Multi-aparelhos (Supabase)</b><br><small>Status: <b id="cloudSt">${cloudOn()?'configurado':'modo local — configure para sincronizar'}</b> • <span id="cloudBadge"></span><br>Sem isso cada celular tem banco separado. Com isso tudo sincroniza.</small><label class="f">SUPABASE URL</label><input class="in" id="cl_url" value="${cc.url}" placeholder="https://xyz.supabase.co"><label class="f">ANON KEY</label><input class="in" id="cl_key" value="${cc.key}" placeholder="eyJ..."><div class="row" style="margin-top:8px"><button class="btn btn-gold btn-sm" id="cl_save">Salvar e sincronizar</button><button class="btn btn-ghost btn-sm" id="cl_test">Testar</button><button class="btn btn-ghost btn-sm" id="cl_pull">Puxar agora</button></div></div>`;
+ $('#cl_save').onclick=async()=>{localStorage.setItem('br_cloud',JSON.stringify({url:$('#cl_url').value.trim(),key:$('#cl_key').value.trim()}));toast('Config salva. Sincronizando...');const ok=await cloudPull();renderPublicBase();renderTab();toast(ok?'Nuvem conectada!':'Falha — confira URL/key + schema.sql');};
+ $('#cl_test').onclick=async()=>{localStorage.setItem('br_cloud',JSON.stringify({url:$('#cl_url').value.trim(),key:$('#cl_key').value.trim()}));try{await sb('store?id=eq.main&select=id');toast('Conexão OK!');}catch(e){toast('Falha: '+e.message);}};
+ $('#cl_pull').onclick=async()=>{const ok=await cloudPull();renderPublicBase();renderTab();toast(ok?'Atualizado da nuvem.':'Nada / falha');};
 }
 
 /* login */
@@ -229,4 +265,6 @@ $('#admClose').onclick=()=>{$('#adminModal').hidden=true;};
 let lastAct=Date.now();document.addEventListener('click',()=>lastAct=Date.now());
 setInterval(()=>{const S=DB.security;if(!$('#adminModal').hidden&&Date.now()-lastAct>S.autoLogoutMin*60*1000){$('#adminModal').hidden=true;toast('Auto logout '+S.autoLogoutMin+'min.');}},30000);
 
-renderPublicBase();renderStep();
+renderPublicBase();renderStep();setCloudBadge();
+(async()=>{if(cloudOn()){setCloudBadge('sincronizando...');const ok=await cloudPull();if(ok){renderPublicBase();renderStep();setCloudBadge('nuvem ok');}else setCloudBadge('modo local');}})();
+setInterval(async()=>{if(cloudOn()&&document.hidden===false){await cloudPull();renderPublicBase();if(!$('#adminModal').hidden&&curTab===5)paintAgenda();}},20000);
