@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Renato Carriço Barbearia — Agendamento</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top container">
+  <div id="logoWrap"></div>
+  <div class="shop-name" id="shopName">RENATO CARRIÇO • BARBEARIA</div>
+  <h1 class="hero-phrase serif" id="heroPhrase">Estilo, precisão e café.</h1>
+  <p class="hero-sub" id="heroDesc">Corte, barba e cuidado — Anchieta / ES.</p>
+</header>
+
+<main class="container">
+  <div class="book-card" id="bookCard">
+    <h2 id="bookTitle">Agende seu horário</h2>
+    <p class="sub" id="bookSub">Só nome e WhatsApp. Em 30 segundos.</p>
+    <div class="stepper" id="stepper"></div>
+    <div id="stepBody"></div>
+  </div>
+
+  <div class="sec2">
+    <div class="mini">
+      <h3 class="serif">Horário Hoje</h3>
+      <div id="todayHours" style="font-size:14px">—</div>
+      <div style="margin-top:10px"><button class="btn btn-ghost btn-sm" id="weekBtn">Ver semana completa</button></div>
+      <div id="weekFull" style="display:none;margin-top:10px;font-size:13px;color:var(--mut)"></div>
+    </div>
+    <div class="mini">
+      <h3 class="serif">Onde estamos</h3>
+      <div id="addrText" style="font-size:13px">Av. Atilio Rauta, 783 — Anchieta / ES</div>
+      <div class="map" id="mapBox" title="Abrir no Maps"><div style="text-align:center"><div class="pin">📍</div><small>Clique para abrir o mapa</small></div></div>
+      <div class="row"><button class="btn btn-ghost btn-sm" id="routeBtn">Como chegar</button>
+      <button class="btn btn-ghost btn-sm" id="socialBtn">📸 Abrir perfil</button></div>
+    </div>
+  </div>
+</main>
+
+<footer><span id="foot">© Renato Carriço Barbearia</span> • <a href="#" id="adminLink">Acesso admin</a></footer>
+
+<div class="modal" id="loginModal" hidden><div class="box">
+  <h3 class="serif">Segurança e Acesso</h3>
+  <label class="f">EMAIL</label><input class="in" id="loginEmail" value="admin@barbearia.com">
+  <label class="f">SENHA</label><input class="in" id="loginPass" type="password" value="admin123">
+  <div class="err" id="loginErr"></div>
+  <div style="height:10px"></div>
+  <button class="btn btn-bege" id="loginGo">ENTRAR</button>
+  <div style="height:8px"></div><button class="btn btn-ghost btn-sm" id="loginClose">Fechar</button>
+</div></div>
+
+<div class="modal" id="adminModal" hidden><div class="box large">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <h3 class="serif" style="margin:0">🛡️ Painel Admin — <span id="admUser"></span></h3>
+    <div><button class="btn btn-ghost btn-sm" id="admClose">Sair do painel</button></div>
+  </div>
+  <div class="admin-layout" style="margin-top:12px">
+    <div class="side" id="sideBar"></div>
+    <div id="tabBody" style="min-width:0"></div>
+  </div>
+</div></div>
+
+<div class="modal" id="confirmModal" hidden><div class="box">
+  <h3 class="serif" id="cfTitle">Confirmar</h3><p id="cfMsg"></p>
+  <div id="cfExtra"></div>
+  <div class="row" style="margin-top:12px"><button class="btn btn-gold" id="cfOk">Confirmar</button><button class="btn btn-ghost" id="cfNo">Cancelar</button></div>
+</div></div>
+
+<div class="toast" id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
