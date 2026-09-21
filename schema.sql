@@ -15,7 +15,7 @@ create table if not exists public.profiles (
 
 create table if not exists public.business_profile (
   id boolean primary key default true check (id),
-  shop_name text not null default 'Renato Carriço Barbearia',
+  shop_name text not null default 'Barbearia Carriço',
   headline text not null default 'Cada detalhe faz o estilo.',
   description text not null default 'Corte, barba e uma pausa bem-feita.',
   address text not null default 'Av. Atilio Rauta, 783 — Anchieta / ES',

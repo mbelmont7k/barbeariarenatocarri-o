@@ -30,7 +30,7 @@
   };
 
   const DEMO = {
-    profile: { shop_name: 'Renato Carriço Barbearia', headline: 'Cada detalhe faz o estilo.', description: 'Corte, barba e uma pausa bem-feita. Escolha seu horário em poucos passos.', address: 'Av. Atilio Rauta, 783 — Anchieta / ES', maps_url: 'https://www.google.com/maps/search/?api=1&query=Av.+Atilio+Rauta+783+Anchieta+ES', instagram_url: 'https://instagram.com/', whatsapp_number: '5528999137277' },
+    profile: { shop_name: 'Barbearia Carriço', headline: 'Cada detalhe faz o estilo.', description: 'Corte, barba e uma pausa bem-feita. Escolha seu horário em poucos passos.', address: 'Av. Atilio Rauta, 783 — Anchieta / ES', maps_url: 'https://www.google.com/maps/search/?api=1&query=Av.+Atilio+Rauta+783+Anchieta+ES', instagram_url: 'https://instagram.com/', whatsapp_number: '5528999137277' },
     services: [
       { id: 'demo-corte', name: 'Corte Degradê', description: 'Máquina, tesoura e finalização.', duration_minutes: 30, price_cents: 5000, active: true, sort_order: 10 },
       { id: 'demo-combo', name: 'Corte + Barba', description: 'Combo completo com toalha quente.', duration_minutes: 60, price_cents: 8000, active: true, sort_order: 20 },
@@ -68,7 +68,11 @@
 
   function applyProfile() {
     const profile = state.profile;
-    document.title = `${profile.shop_name || 'Barbearia'} — Agendamento`;
+    const shopName = profile.shop_name || 'Barbearia Carriço';
+    document.title = `${shopName} — Agendamento`;
+    $('#brandName').textContent = shopName.toUpperCase();
+    $('#footerBrand').textContent = shopName;
+    $('#brandMark').textContent = shopName.split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase() || 'BC';
     $('#heroText').textContent = profile.description || DEMO.profile.description;
     $('#addressText').textContent = profile.address || DEMO.profile.address;
     $('#mapsLink').href = safeUrl(profile.maps_url, DEMO.profile.maps_url);
