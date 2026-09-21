@@ -1,270 +1,330 @@
-/* Barbearia Renato Carrico - sistema completo v2 */
-const KEY='br_renato_v2';
-const $=s=>document.querySelector(s);
-const $$=s=>[...document.querySelectorAll(s)];
-const uid=p=>(p||'id')+Date.now().toString(36)+Math.floor(Math.random()*999);
-const onlyDigits=s=>(s||'').replace(/\D/g,'');
-const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const pad=n=>String(n).padStart(2,'0');
-const iso=d=>d.toISOString().slice(0,10);
-const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
-const addDays=(base,n)=>{const d=new Date(base+'T12:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
-const WD=['DOM','SEG','TER','QUA','QUI','SEX','SAB'];
-const WDF=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-const toMin=t=>{const[a,b]=(t||'00:00').split(':').map(Number);return a*60+b;};
-const toHM=m=>pad(Math.floor(m/60))+':'+pad(m%60);
-const hashSim=s=>btoa(unescape(encodeURIComponent('::RENATO::'+s))).split('').reverse().join('');
-function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(t._x);t._x=setTimeout(()=>t.hidden=true,2800);}
-let CF_CB=null;
-function confirmDlg(title,msg,extraHTML,onOk){$('#cfTitle').textContent=title;$('#cfMsg').textContent=msg;$('#cfExtra').innerHTML=extraHTML||'';$('#confirmModal').hidden=false;CF_CB=onOk;}
-$('#cfNo').onclick=()=>{$('#confirmModal').hidden=true;CF_CB=null;};
-$('#cfOk').onclick=()=>{const need=$('#cfExtra input');if(need&&need.dataset.need&&need.value!==need.dataset.need){toast('Digite '+need.dataset.need);return;}$('#confirmModal').hidden=true;if(CF_CB)CF_CB();CF_CB=null;};
-function maskPhone(v){v=onlyDigits(v).slice(0,11);if(v.length<=10)return v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');return v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');}
+/* Renato Carriço Barbearia — cliente estático para Supabase */
+(() => {
+  'use strict';
 
-function seed(){return{
- site:{shopName:'RENATO CARRIÇO • BARBEARIA',heroPhrase:'Estilo, precisão e café.',heroDesc:'Corte, barba e cuidado — Anchieta / ES.',bookTitle:'Agende seu horário',bookSub:'Só nome e WhatsApp. Em 30 segundos.',msgSuccess:'Agendamento confirmado!',cBege:'#E8DCC6',cGold:'#C9A86A',cBg:'#0A0A0A'},
- images:{logo:'',cover:'',gallery:[]},
- contacts:{address:'Av. Atilio Rauta, 783 — Anchieta / ES',mapsUrl:'https://www.google.com/maps/search/?api=1&query=Av.+Atilio+Rauta+783+Anchieta+ES',socialUrl:'https://instagram.com/',whatsapp:'27999137277'},
- hours:{days:[
-  {open:false,periods:[{s:'08:30',e:'12:00'},{s:'13:20',e:'20:30'}],lunch:{on:true,start:'12:00',end:'13:00'}},
-  {open:true,periods:[{s:'08:30',e:'12:00'},{s:'13:20',e:'20:30'}],lunch:{on:true,start:'12:00',end:'13:00'}},
-  {open:true,periods:[{s:'08:30',e:'12:00'},{s:'13:20',e:'20:30'}],lunch:{on:true,start:'12:00',end:'13:00'}},
-  {open:true,periods:[{s:'08:30',e:'12:00'},{s:'13:20',e:'20:30'}],lunch:{on:true,start:'12:00',end:'13:00'}},
-  {open:true,periods:[{s:'08:30',e:'12:00'},{s:'13:20',e:'20:30'}],lunch:{on:true,start:'12:00',end:'13:00'}},
-  {open:true,periods:[{s:'08:30',e:'12:00'},{s:'13:20',e:'20:30'}],lunch:{on:true,start:'12:00',end:'13:00'}},
-  {open:true,periods:[{s:'08:30',e:'12:00'},{s:'13:20',e:'18:00'}],lunch:{on:true,start:'12:00',end:'13:00'}} ]},
- services:[
-  {id:'s1',name:'Corte Degradê',desc:'Máquina + tesoura, finalização.',duration:30,price:50,gap:0,active:true,photo:''},
-  {id:'s2',name:'Corte + Barba',desc:'Combo toalha quente + navalha.',duration:60,price:80,gap:0,active:true,photo:''},
-  {id:'s3',name:'Barba Navalha',desc:'Contorno e hidratação.',duration:30,price:35,gap:0,active:true,photo:''}],
- appointments:[],blocks:[],
- automation:{enabled:true,time:'07:30',ownerPhone:'5528999137277',template:'🔔 LEMBRETE — Barbearia Renato Carriço\n📅 {{data}} {{horario}}\n👤 {{nomeCliente}} {{telefoneCliente}}\n💈 {{servico}} com {{barbeiro}} — {{valor}}',lastSentAt:'',logs:[],contacted:{}},
- security:{users:[{id:'u1',name:'Super Admin',email:'admin@barbearia.com',passHash:hashSim('admin123'),role:'Super Admin',active:true,perms:['all'],lastAccess:null}],currentId:null,logs:[],sessions:[],autoLogoutMin:30,attempts:0,lockUntil:0,fa:false}
-};}
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.site&&d.services)return d;}catch(e){}const d=seed();localStorage.setItem(KEY,JSON.stringify(d));return d;}
-function save(){localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}
-let DB=load();
-/* ===== NUVEM Supabase (multi-aparelhos) ===== */
-function cloudCfg(){try{const s=JSON.parse(localStorage.getItem('br_cloud')||'{}');return{url:s.url||window.SUPABASE_URL||'',key:s.key||window.SUPABASE_ANON_KEY||''};}catch(e){return{url:window.SUPABASE_URL||'',key:window.SUPABASE_ANON_KEY||''};}}
-function cloudOn(){const c=cloudCfg();return !!(c.url&&c.key);}
-async function sb(path,method,body){const c=cloudCfg();const r=await fetch(c.url+'/rest/v1/'+path,{method:method||'GET',headers:{apikey:c.key,Authorization:'Bearer '+c.key,'Content-Type':'application/json',Prefer:method==='POST'?'return=representation':undefined},body:body?JSON.stringify(body):undefined});if(!r.ok)throw new Error('Supabase '+r.status);return method==='GET'?r.json():r.json().catch(()=>[]);}
-let _pushT=null;
-async function cloudPush(){if(!cloudOn())return;clearTimeout(_pushT);_pushT=setTimeout(async()=>{
- try{
-  const main={site:DB.site,images:{logo:DB.images.logo,cover:DB.images.cover,gallery:(DB.images.gallery||[]).slice(0,20)},contacts:DB.contacts,hours:DB.hours,services:DB.services,automation:DB.automation,security:{users:DB.security.users,autoLogoutMin:DB.security.autoLogoutMin}};
-  await sb('store?id=eq.main','PATCH',{data:main});
-  setCloudBadge('nuvem ok');
- }catch(e){setCloudBadge('nuvem falha');}
-},800);}
-async function cloudPull(){if(!cloudOn())return false;try{
- const s=await sb('store?id=eq.main&select=data');const remote=s[0]?.data;
- const ap=await sb('appointments?select=*&order=date.asc,time.asc&limit=2000');
- const bl=await sb('blocks?select=*&limit=500');
- if(remote&&remote.site){const localAppts=DB.appointments,localBlks=DB.blocks;
-  DB.site=remote.site;DB.contacts=remote.contacts||DB.contacts;DB.hours=remote.hours||DB.hours;DB.services=remote.services||DB.services;DB.automation=remote.automation||DB.automation;
-  if(remote.images)DB.images=Object.assign(DB.images,remote.images);
-  if(remote.security)DB.security.users=remote.security.users||DB.security.users;
-  DB.appointments=(ap||[]).map(r=>({id:r.id,client:r.client,phone:r.phone,serviceId:r.service_id,barber:r.barber,date:r.date,time:r.time,end:r.end_time,note:r.note,status:r.status,createdAt:r.created_at}));
-  DB.blocks=(bl||[]).map(r=>({id:r.id,date:r.date,start:r.start_time,end:r.end_time,reason:r.reason}));
-  if(!DB.appointments.length&&localAppts.length){for(const a of localAppts)await cloudUpsertAppt(a);}
-  localStorage.setItem(KEY,JSON.stringify(DB));
-  return true;
- }return false;}catch(e){return false;}}
-async function cloudUpsertAppt(a){const s=DB.services.find(x=>x.id===a.serviceId);await sb('appointments','POST',{id:a.id,client:a.client,phone:a.phone,service_id:a.serviceId,service_name:s?.name||'',price:s?.price||0,barber:a.barber||'Renato Carriço',date:a.date,time:a.time,end_time:a.end||'',note:a.note||'',status:a.status}).catch(()=>sb('appointments?id=eq.'+a.id,'PATCH',{client:a.client,phone:a.phone,service_id:a.serviceId,status:a.status,date:a.date,time:a.time,end_time:a.end,note:a.note||''}));}
-async function cloudDeleteAppt(id){if(!cloudOn())return;await fetch(cloudCfg().url+'/rest/v1/appointments?id=eq.'+id,{method:'DELETE',headers:{apikey:cloudCfg().key,Authorization:'Bearer '+cloudCfg().key}}).catch(()=>{});}
-function setCloudBadge(t){const e=$('#cloudBadge');if(e)e.textContent=t||(cloudOn()?'nuvem on':'modo local');}
-function slog(action,status){DB.security.logs.unshift({at:new Date().toLocaleString('pt-BR'),user:curAdmin()?.email||'public',action,ip:'local',status:status||'ok'});DB.security.logs=DB.security.logs.slice(0,200);save();}
-function curAdmin(){return DB.security.users.find(u=>u.id===DB.security.currentId)||null;}
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const DAYS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+  const SHORT_DAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+  const money = cents => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((Number(cents) || 0) / 100);
+  const escapeHTML = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+  const onlyDigits = value => String(value || '').replace(/\D/g, '');
+  const pad = value => String(value).padStart(2, '0');
+  const time = value => String(value || '').slice(0, 5);
+  const isoDate = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const localDate = value => { const [year, month, day] = String(value).slice(0, 10).split('-').map(Number); return new Date(year, month - 1, day, 12); };
+  const addDays = (date, amount) => { const copy = new Date(date); copy.setDate(copy.getDate() + amount); return copy; };
+  const toDateTime = value => new Date(String(value).replace(' ', 'T'));
+  const formatDate = value => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' }).format(localDate(value));
+  const formatDateTime = value => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(toDateTime(value));
+  const maskPhone = value => {
+    const digits = onlyDigits(value).slice(0, 11);
+    if (digits.length <= 10) return digits.replace(/(\d{0,2})(\d{0,4})(\d{0,4})/, (_, a, b, c) => `${a ? `(${a}` : ''}${a.length === 2 ? ') ' : ''}${b}${c ? `-${c}` : ''}`);
+    return digits.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+  };
+  const friendlyError = error => {
+    const message = error?.message || 'Não foi possível concluir agora. Tente novamente.';
+    if (/JWT|permission|acesso/i.test(message)) return 'Sua sessão não tem permissão para esta ação.';
+    if (/fetch|network|Failed to fetch/i.test(message)) return 'Sem conexão com o banco. Confira sua internet e tente novamente.';
+    return message.replace(/^.*?:\s*/, '');
+  };
 
-/* ---------- PUBLIC ---------- */
-let BK={step:0,name:'',phone:'',serviceId:'',date:'',time:''};
-const STEPS=['Você','Serviço','Dia','Hora','Confirma'];
-function applyTheme(){document.documentElement.style.setProperty('--bege',DB.site.cBege);document.documentElement.style.setProperty('--gold',DB.site.cGold);document.documentElement.style.setProperty('--bg',DB.site.cBg);}
-function renderPublicBase(){
- applyTheme();
- $('#shopName').textContent=DB.site.shopName;$('#heroPhrase').textContent=DB.site.heroPhrase;$('#heroDesc').textContent=DB.site.heroDesc;
- $('#bookTitle').textContent=DB.site.bookTitle;$('#bookSub').textContent=DB.site.bookSub;
- $('#addrText').textContent=DB.contacts.address;$('#foot').textContent='© '+DB.site.shopName;
- const lw=$('#logoWrap');
- if(DB.images.logo){lw.innerHTML=`<img class="logo" src="${DB.images.logo}" alt="logo">`;}
- else{lw.innerHTML=`<div class="logo-fallback">R</div><div style="font-size:11px;color:var(--mut)">Coloque logo.png na pasta ou envie no Admin → Imagens</div>`;}
- const t=new Date();const cfg=DB.hours.days[t.getDay()];
- $('#todayHours').innerHTML=cfg.open?cfg.periods.map(p=>`${p.s}–${p.e}`).join(' / '):'Fechado hoje';
- $('#weekFull').innerHTML=DB.hours.days.map((d,i)=>`${WDF[i]}: ${d.open?d.periods.map(p=>p.s+'-'+p.e).join(' / '):'Fechado'}`).join('<br>');
-}
-$('#weekBtn').onclick=()=>{const e=$('#weekFull');e.style.display=e.style.display==='none'?'block':'none';};
-$('#mapBox').onclick=()=>window.open(DB.contacts.mapsUrl,'_blank');
-$('#routeBtn').onclick=()=>window.open(DB.contacts.mapsUrl,'_blank');
-$('#socialBtn').onclick=()=>window.open(DB.contacts.socialUrl,'_blank');
+  const DEMO = {
+    profile: { shop_name: 'Renato Carriço Barbearia', headline: 'Cada detalhe faz o estilo.', description: 'Corte, barba e uma pausa bem-feita. Escolha seu horário em poucos passos.', address: 'Av. Atilio Rauta, 783 — Anchieta / ES', maps_url: 'https://www.google.com/maps/search/?api=1&query=Av.+Atilio+Rauta+783+Anchieta+ES', instagram_url: 'https://instagram.com/', whatsapp_number: '5528999137277' },
+    services: [
+      { id: 'demo-corte', name: 'Corte Degradê', description: 'Máquina, tesoura e finalização.', duration_minutes: 30, price_cents: 5000, active: true, sort_order: 10 },
+      { id: 'demo-combo', name: 'Corte + Barba', description: 'Combo completo com toalha quente.', duration_minutes: 60, price_cents: 8000, active: true, sort_order: 20 },
+      { id: 'demo-barba', name: 'Barba Navalha', description: 'Contorno, navalha e hidratação.', duration_minutes: 30, price_cents: 3500, active: true, sort_order: 30 }
+    ],
+    hours: [
+      { day_of_week: 0, is_open: false, opens_at: '08:30', closes_at: '18:00' },
+      { day_of_week: 1, is_open: true, opens_at: '08:30', closes_at: '20:30', break_starts_at: '12:00', break_ends_at: '13:20' },
+      { day_of_week: 2, is_open: true, opens_at: '08:30', closes_at: '20:30', break_starts_at: '12:00', break_ends_at: '13:20' },
+      { day_of_week: 3, is_open: true, opens_at: '08:30', closes_at: '20:30', break_starts_at: '12:00', break_ends_at: '13:20' },
+      { day_of_week: 4, is_open: true, opens_at: '08:30', closes_at: '20:30', break_starts_at: '12:00', break_ends_at: '13:20' },
+      { day_of_week: 5, is_open: true, opens_at: '08:30', closes_at: '20:30', break_starts_at: '12:00', break_ends_at: '13:20' },
+      { day_of_week: 6, is_open: true, opens_at: '08:30', closes_at: '18:00', break_starts_at: '12:00', break_ends_at: '13:20' }
+    ]
+  };
 
-function renderStepper(){$('#stepper').innerHTML=STEPS.map((s,i)=>`<div class="${i<=BK.step?'on':''}"><span></span>${s}</div>`).join('');}
-function renderStep(){
- renderStepper();
- const b=$('#stepBody');
- if(BK.step===0){b.innerHTML=`<label class="f">NOME COMPLETO</label><input class="in" id="bkName" placeholder="Ex João Silva" value="${BK.name}"><label class="f">WHATSAPP</label><input class="in" id="bkPhone" placeholder="(27) 99999-9999" value="${BK.phone}"><div class="err" id="bkErr"></div><div style="height:12px"></div><button class="btn btn-bege" id="bkNext">CONTINUAR</button>`;
-  const ph=$('#bkPhone');ph.addEventListener('input',()=>ph.value=maskPhone(ph.value));
-  $('#bkNext').onclick=()=>{BK.name=$('#bkName').value.trim();BK.phone=$('#bkPhone').value;const d=onlyDigits(BK.phone);
-   if(BK.name.length<3){$('#bkErr').textContent='Digite seu nome completo (mín. 3 letras).';return;}
-   if(d.length<10){$('#bkErr').textContent='WhatsApp inválido. Ex: (27) 99999-9999';return;}
-   BK.step=1;renderStep();};}
- if(BK.step===1){const act=DB.services.filter(s=>s.active);
-  b.innerHTML=`<div class="svc-list">${act.map(s=>`<button class="svc-card ${BK.serviceId===s.id?'sel':''}" data-id="${s.id}">${s.photo?`<img src="${s.photo}">`:`<img src="" style="display:none">`}<span><b>${s.name}</b><small>${s.duration} min • ${money(s.price)}</small><br><small>${s.desc||''}</small></span></button>`).join('')||'Nenhum serviço ativo.'}</div><div style="height:12px"></div><div class="row"><button class="btn btn-ghost" id="bkBack">Voltar</button><button class="btn btn-bege" id="bkNext2">CONTINUAR</button></div><div class="err" id="bkErr"></div>`;
-  $$('.svc-card').forEach(c=>c.onclick=()=>{BK.serviceId=c.dataset.id;renderStep();});
-  $('#bkBack').onclick=()=>{BK.step=0;renderStep();};
-  $('#bkNext2').onclick=()=>{if(!BK.serviceId){$('#bkErr').textContent='Escolha um serviço.';return;}BK.step=2;renderStep();};}
- if(BK.step===2){let h='';for(let i=0;i<30;i++){const dt=addDays(todayISO(),i);const d=new Date(dt+'T12:00:00');const cfg=DB.hours.days[d.getDay()];const open=cfg.open;
-   h+=`<button ${open?'':'disabled'} data-d="${dt}" class="${BK.date===dt?'sel':''}"><b>${pad(d.getDate())}/${pad(d.getMonth()+1)}</b><small>${WD[d.getDay()]}${open?'':' • fechado'}</small></button>`;}
-  b.innerHTML=`<div class="cal">${h}</div><div style="height:12px"></div><div class="row"><button class="btn btn-ghost" id="bkBack">Voltar</button></div>`;
-  $$('#stepBody .cal button').forEach(x=>x.onclick=()=>{BK.date=x.dataset.d;BK.time='';BK.step=3;renderStep();});
-  $('#bkBack').onclick=()=>{BK.step=1;renderStep();};}
- if(BK.step===3){const svc=DB.services.find(s=>s.id===BK.serviceId);const slots=calculateAvailability(BK.date,svc.duration);
-  b.innerHTML=`<p style="color:var(--mut);font-size:13px">${BK.date} • ${svc.name} (${svc.duration}min)</p><div class="hour-grid">${slots.map(t=>`<button data-t="${t}" class="${BK.time===t?'sel':''}">${t}</button>`).join('')||'<small>Nenhum horário livre neste dia.</small>'}</div><div style="height:12px"></div><div class="row"><button class="btn btn-ghost" id="bkBack">Voltar</button><button class="btn btn-bege" id="bkNext3">CONTINUAR</button></div><div class="err" id="bkErr"></div>`;
-  $$('#stepBody .hour-grid button').forEach(x=>x.onclick=()=>{BK.time=x.dataset.t;renderStep();});
-  $('#bkBack').onclick=()=>{BK.step=2;renderStep();};
-  $('#bkNext3').onclick=()=>{if(!BK.time){$('#bkErr').textContent='Escolha a hora.';return;}BK.step=4;renderStep();};}
- if(BK.step===4){const svc=DB.services.find(s=>s.id===BK.serviceId);
-  // nunca confiar preço frontend: recalcula aqui
-  const price=Number(DB.services.find(s=>s.id===BK.serviceId)?.price||0);
-  b.innerHTML=`<div class="summary"><b>Resumo</b><br>👤 ${BK.name} • ${BK.phone}<br>💈 ${svc.name} — ${money(price)}<br>📅 ${BK.date} às ${BK.time}<br>📍 ${DB.contacts.address}</div><div class="row"><button class="btn btn-ghost" id="bkBack">Voltar</button><button class="btn btn-bege" id="bkOk">CONFIRMAR</button></div><div class="err" id="bkErr"></div>`;
-  $('#bkBack').onclick=()=>{BK.step=3;renderStep();};
-  $('#bkOk').onclick=async()=>{
-   await cloudPull();renderPublicBase();
-   const slots=calculateAvailability(BK.date,svc.duration);
-   if(!slots.includes(BK.time)){$('#bkErr').textContent='Esse horário acabou de ser ocupado. Escolha outro.';return;}
-   if(DB.appointments.some(a=>a.phone===onlyDigits(BK.phone)&&a.date===BK.date&&a.time===BK.time&&a.status!=='cancelado')){$('#bkErr').textContent='Você já tem reserva neste horário.';return;}
-   const nap={id:uid('a'),client:BK.name,phone:onlyDigits(BK.phone),serviceId:svc.id,barber:'Renato Carriço',date:BK.date,time:BK.time,end:toHM(toMin(BK.time)+svc.duration),note:'',status:'confirmado',createdAt:new Date().toISOString()};
-   DB.appointments.push(nap);
-   save();slog('Nova reserva pública '+BK.name+' '+BK.date+' '+BK.time);
-   if(cloudOn()){try{await cloudUpsertAppt(nap);}catch(e){}}
-   b.innerHTML=`<div class="summary">✅ <b>${DB.site.msgSuccess}</b><br>${svc.name} • ${BK.date} ${BK.time}<br>Chegue com 5 min de antecedência.</div><button class="btn btn-bege" onclick="location.reload()">FAZER OUTRO AGENDAMENTO</button>`;
-   toast('Agendado!');
-  };}
-}
-/* disponibilidade: considera duração, expediente, almoço 12-13, bloqueios, sobreposição */
-function calculateAvailability(dateISO,dur){
- const d=new Date(dateISO+'T12:00:00');const cfg=DB.hours.days[d.getDay()];
- if(!cfg||!cfg.open)return[];
- DB=DB;const out=[];
- const res=DB.appointments.filter(a=>a.date===dateISO&&a.status!=='cancelado').map(a=>({s:toMin(a.time),e:toMin(a.end||toHM(toMin(a.time)+30))}));
- const blks=DB.blocks.filter(x=>x.date===dateISO).map(x=>({s:toMin(x.start),e:toMin(x.end)}));
- if(cfg.lunch&&cfg.lunch.on)blks.push({s:toMin(cfg.lunch.start||'12:00'),e:toMin(cfg.lunch.end||'13:00')});
- for(const p of cfg.periods){let cur=toMin(p.s);const end=toMin(p.e);
-  while(cur+dur<=end){const sE=cur,eE=cur+dur;let busy=false;
-   for(const r of res.concat(blks)){if(sE<r.e&&eE>r.s){busy=true;break;}}
-   if(!busy){const t=toHM(sE);if(!(dateISO===todayISO()&&t<=pad(new Date().getHours())+':'+pad(new Date().getMinutes())))out.push(t);}
-   cur+=30;}
- }
- return out;
-}
+  const configured = Boolean(window.SUPABASE_URL && window.SUPABASE_ANON_KEY && window.supabase);
+  const db = configured ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
+  const state = {
+    profile: { ...DEMO.profile }, services: [...DEMO.services], hours: [...DEMO.hours],
+    booking: { step: 0, name: '', phone: '', serviceId: '', date: '', slot: '' },
+    slots: [], slotsLoading: false, slotsError: '',
+    session: null, staffProfile: null, adminTab: 'agenda', appointments: [], blocks: [], adminDate: isoDate(new Date()), channel: null, publicChannel: null
+  };
 
-/* ---------- ADMIN ---------- */
-const TABS=['Página pública','Imagens','Links e contatos','Horários','Serviços','Agenda','Automações','Segurança'];
-let curTab=0, agendaView='dia', agendaFilter='';
-function openAdmin(){$('#adminModal').hidden=false;$('#admUser').textContent=curAdmin()?.email||'';renderSide();renderTab();}
-function renderSide(){$('#sideBar').innerHTML=TABS.map((t,i)=>`<button class="${i===curTab?'active':''}" data-i="${i}">${i+1}. ${t}</button>`).join('');$$('#sideBar button').forEach(x=>x.onclick=()=>{curTab=Number(x.dataset.i);renderSide();renderTab();});}
-function isURL(v){try{new URL(v);return true;}catch{return false;}}
-function fileToBase64(f){return new Promise(r=>{const rd=new FileReader();rd.onload=()=>r(rd.result);rd.readAsDataURL(f);});}
+  let toastTimer;
+  const showToast = message => {
+    const element = $('#toast'); element.textContent = message; element.classList.add('visible');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => element.classList.remove('visible'), 3600);
+  };
+  const setConnection = (label, type = '') => {
+    const status = $('#connectionStatus'); status.className = `connection-status ${type}`; status.innerHTML = '<i></i>'; status.append(` ${label}`);
+  };
+  const loadingMarkup = () => $('#loadingTemplate').innerHTML;
 
-function renderTab(){const b=$('#tabBody');
- if(curTab===0){b.innerHTML=`<h3>1. Página pública</h3><div class="kv"><div><label class="f">NOME LOJA</label><input class="in" id="a_shop" value="${DB.site.shopName}"></div><div><label class="f">FRASE SERIF</label><input class="in" id="a_phrase" value="${DB.site.heroPhrase}"></div></div><label class="f">DESCRIÇÃO</label><textarea class="in" id="a_desc">${DB.site.heroDesc}</textarea><div class="kv"><div><label class="f">TÍTULO FORM</label><input class="in" id="a_bt" value="${DB.site.bookTitle}"></div><div><label class="f">SUBTÍTULO</label><input class="in" id="a_bs" value="${DB.site.bookSub}"></div></div><label class="f">MSG SUCESSO</label><input class="in" id="a_msg" value="${DB.site.msgSuccess}"><div class="row"><label class="f">BEGE<input type="color" id="a_c1" value="${DB.site.cBege}"></label><label class="f">DOURADO<input type="color" id="a_c2" value="${DB.site.cGold}"></label><label class="f">FUNDO<input type="color" id="a_c3" value="${DB.site.cBg}"></label></div><div style="height:10px"></div><button class="btn btn-gold btn-sm" id="a_save">Salvar</button><div class="preview" id="a_prev"></div>`;
-  const upd=()=>{$('#a_prev').innerHTML=`<div class="shop-name">${$('#a_shop').value}</div><div class="serif" style="font-size:28px">${$('#a_phrase').value}</div><small>${$('#a_desc').value}</small>`;};
-  ['a_shop','a_phrase','a_desc'].forEach(id=>$('#'+id).addEventListener('input',upd));upd();
-  $('#a_save').onclick=()=>{Object.assign(DB.site,{shopName:$('#a_shop').value,heroPhrase:$('#a_phrase').value,heroDesc:$('#a_desc').value,bookTitle:$('#a_bt').value,bookSub:$('#a_bs').value,msgSuccess:$('#a_msg').value,cBege:$('#a_c1').value,cGold:$('#a_c2').value,cBg:$('#a_c3').value});save();renderPublicBase();slog('Editou página pública');toast('Salvo + preview aplicado.');};}
- if(curTab===1){b.innerHTML=`<h3>2. Imagens (base64, preview 120px)</h3><label class="f">LOGO (160px topo)</label><input type="file" id="up_logo" accept="image/*"><div class="gal" id="pv_logo">${DB.images.logo?`<img src="${DB.images.logo}">`:''}</div><label class="f">GALERIA</label><input type="file" id="up_gal" accept="image/*" multiple><div class="gal">${DB.images.gallery.map((g,i)=>`<span style="position:relative"><img src="${g}"><br><button class="btn btn-ghost btn-sm" data-del="${i}">remover</button> <button class="btn btn-ghost btn-sm" data-up="${i}">◀</button><button class="btn btn-ghost btn-sm" data-dn="${i}">▶</button></span>`).join('')}</div>`;
-  $('#up_logo').onchange=async e=>{const f=e.target.files[0];if(!f)return;DB.images.logo=await fileToBase64(f);save();renderPublicBase();renderTab();toast('Logo atualizada.');};
-  $('#up_gal').onchange=async e=>{for(const f of e.target.files){DB.images.gallery.push(await fileToBase64(f));}save();renderTab();};
-  $$('#tabBody [data-del]').forEach(x=>x.onclick=()=>confirmDlg('Remover imagem','Deseja remover?', '',()=>{DB.images.gallery.splice(Number(x.dataset.del),1);save();renderTab();}));
-  $$('#tabBody [data-up]').forEach(x=>x.onclick=()=>{const i=Number(x.dataset.up);if(i>0){[DB.images.gallery[i-1],DB.images.gallery[i]]=[DB.images.gallery[i],DB.images.gallery[i-1]];save();renderTab();}});
-  $$('#tabBody [data-dn]').forEach(x=>x.onclick=()=>{const i=Number(x.dataset.dn);if(i<DB.images.gallery.length-1){[DB.images.gallery[i+1],DB.images.gallery[i]]=[DB.images.gallery[i],DB.images.gallery[i+1]];save();renderTab();}});}
- if(curTab===2){b.innerHTML=`<h3>3. Links e contatos</h3><label class="f">ENDEREÇO</label><textarea class="in" id="c_addr">${DB.contacts.address}</textarea><label class="f">LINK MAPS (separado)</label><input class="in" id="c_maps" value="${DB.contacts.mapsUrl}"><label class="f">LINK REDE SOCIAL (separado)</label><input class="in" id="c_soc" value="${DB.contacts.socialUrl}"><label class="f">WHATSAPP</label><input class="in" id="c_zap" value="${DB.contacts.whatsapp}"><div class="err" id="c_err"></div><div class="row"><button class="btn btn-gold btn-sm" id="c_save">Salvar</button><button class="btn btn-ghost btn-sm" id="c_t1">Testar Maps</button><button class="btn btn-ghost btn-sm" id="c_t2">Testar perfil</button></div>`;
-  $('#c_zap').addEventListener('input',e=>e.target.value=maskPhone(e.target.value));
-  $('#c_save').onclick=()=>{const m=$('#c_maps').value,s=$('#c_soc').value;if(!isURL(m)||!isURL(s)){$('#c_err').textContent='Links inválidos. Use https://...';return;}DB.contacts={address:$('#c_addr').value,mapsUrl:m,socialUrl:s,whatsapp:$('#c_zap').value};save();renderPublicBase();slog('Editou contatos');toast('Links atualizados e refletidos.');};
-  $('#c_t1').onclick=()=>window.open($('#c_maps').value,'_blank');$('#c_t2').onclick=()=>window.open($('#c_soc').value,'_blank');}
- if(curTab===3){b.innerHTML=`<h3>4. Horários</h3>${DB.hours.days.map((d,i)=>`<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0"><b>${WDF[i]}</b> <label><input type="checkbox" data-open="${i}" ${d.open?'checked':''}> Aberto</label> ${d.periods.map((p,j)=>`<div class="row"><input type="time" data-ps="${i}-${j}" value="${p.s}"><input type="time" data-pe="${i}-${j}" value="${p.e}"><button class="btn btn-ghost btn-sm" data-rmp="${i}-${j}">x</button></div>`).join('')}<button class="btn btn-ghost btn-sm" data-addp="${i}">+ Período</button> <label><input type="checkbox" data-lunch="${i}" ${d.lunch.on?'checked':''}> Almoço ${d.lunch.start}-${d.lunch.end}</label></div>`).join('')}<button class="btn btn-gold btn-sm" id="h_save">Salvar horários</button>`;
-  $$('#tabBody [data-addp]').forEach(x=>x.onclick=()=>{DB.hours.days[Number(x.dataset.addp)].periods.push({s:'13:00',e:'18:00'});save();renderTab();});
-  $$('#tabBody [data-rmp]').forEach(x=>x.onclick=()=>{const[a,c]=x.dataset.rmp.split('-').map(Number);DB.hours.days[a].periods.splice(c,1);save();renderTab();});
-  $('#h_save').onclick=()=>{$$('#tabBody [data-open]').forEach(c=>DB.hours.days[Number(c.dataset.open)].open=c.checked);$$('#tabBody [data-lunch]').forEach(c=>DB.hours.days[Number(c.dataset.lunch)].lunch.on=c.checked);$$('#tabBody [data-ps]').forEach(inp=>{const[a,c]=inp.dataset.ps.split('-').map(Number);DB.hours.days[a].periods[c].s=inp.value;});$$('#tabBody [data-pe]').forEach(inp=>{const[a,c]=inp.dataset.pe.split('-').map(Number);DB.hours.days[a].periods[c].e=inp.value;});save();renderPublicBase();slog('Editou horários');toast('Horários salvos. Domingo configurável.');};}
- if(curTab===4){b.innerHTML=`<h3>5. Serviços</h3><form id="ns" class="row"><input class="in" id="n_name" placeholder="Nome" required><select class="in" id="n_dur"><option>15</option><option selected>30</option><option>45</option><option>60</option><option>90</option></select><input class="in" id="n_price" type="number" placeholder="Preço" min="0"><button class="btn btn-gold btn-sm">+ Add</button></form><div id="svcAdm">${DB.services.map((s,i)=>`<div style="border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0"><b>${s.name}</b> ${s.active?'✅':'⏸'} — ${s.duration}min ${money(s.price)}<br><small>${s.desc||''}</small><br><button class="btn btn-ghost btn-sm" data-ed="${s.id}">Editar</button> <button class="btn btn-ghost btn-sm" data-tg="${s.id}">Ativo/Inativo</button> <button class="btn btn-ghost btn-sm" data-mv="${i},-1">↑</button><button class="btn btn-ghost btn-sm" data-mv="${i},1}">↓</button> <button class="btn btn-ghost btn-sm" data-dl="${s.id}">Excluir</button></div>`).join('')}</div>`;
-  $('#ns').onsubmit=e=>{e.preventDefault();DB.services.push({id:uid('s'),name:$('#n_name').value,desc:'',duration:Number($('#n_dur').value),price:Number($('#n_price').value||0),gap:0,active:true,photo:''});save();renderTab();};
-  $$('#tabBody [data-dl]').forEach(x=>x.onclick=()=>confirmDlg('Excluir serviço','Confirmar exclusão?','',()=>{DB.services=DB.services.filter(s=>s.id!==x.dataset.dl);save();renderTab();}));
-  $$('#tabBody [data-tg]').forEach(x=>x.onclick=()=>{const s=DB.services.find(v=>v.id===x.dataset.tg);s.active=!s.active;save();renderTab();});
-  $$('#tabBody [data-mv]').forEach(x=>x.onclick=()=>{const[i,d]=x.dataset.mv.split(',').map(Number);const j=i+d;if(j<0||j>=DB.services.length)return;[DB.services[i],DB.services[j]]=[DB.services[j],DB.services[i]];save();renderTab();});
-  $$('#tabBody [data-ed]').forEach(x=>x.onclick=()=>{const s=DB.services.find(v=>v.id===x.dataset.ed);const n=prompt('Nome',s.name);if(!n)return;const dsc=prompt('Descrição',s.desc||'');const pr=Number(prompt('Preço',s.price));const du=Number(prompt('Duração 15/30/45/60/90',s.duration));s.name=n;s.desc=dsc||'';if(!isNaN(pr))s.price=pr;if([15,30,45,60,90].includes(du))s.duration=du;save();renderTab();});}
- if(curTab===5){b.innerHTML=`<h3>6. Agenda</h3><div class="row"><button class="btn ${agendaView==='dia'?'btn-gold':'btn-ghost'} btn-sm" data-v="dia">Dia</button><button class="btn ${agendaView==='semana'?'btn-gold':'btn-ghost'} btn-sm" data-v="semana">Semana</button><button class="btn ${agendaView==='mes'?'btn-gold':'btn-ghost'} btn-sm" data-v="mes">Mês</button><select class="in" id="agF" style="height:36px"><option value="">Todos</option><option>confirmado</option><option>pendente</option><option>concluído</option><option>cancelado</option></select></div><div style="height:8px"></div><div class="row"><button class="btn btn-gold btn-sm" id="agNew">+ Nova reserva manual</button><button class="btn btn-ghost btn-sm" id="agBlk">⛔ Bloquear horário</button></div><div id="agBody" style="margin-top:10px"></div>`;
-  $$('#tabBody [data-v]').forEach(x=>x.onclick=()=>{agendaView=x.dataset.v;renderTab();});
-  $('#agF').value=agendaFilter;$('#agF').onchange=e=>{agendaFilter=e.target.value;paintAgenda();};
-  $('#agNew').onclick=modalReserva;$('#agBlk').onclick=modalBloqueio;paintAgenda();}
- if(curTab===6)renderAuto(b);
- if(curTab===7)renderSec(b);
-}
-function paintAgenda(){const el=$('#agBody');if(!el)return;let list=[...DB.appointments];if(agendaFilter)list=list.filter(a=>a.status===agendaFilter);
- const acts=id=>`<button class="btn btn-ghost btn-sm" onclick="admAct('${id}','confirmado')">Confirmar</button> <button class="btn btn-ghost btn-sm" onclick="admAct('${id}','concluído')">Concluir</button> <button class="btn btn-ghost btn-sm" onclick="admAct('${id}','cancelado')">Cancelar</button> <button class="btn btn-ghost btn-sm" onclick="admEdit('${id}')">Editar</button> <button class="btn btn-ghost btn-sm" onclick="admRe('${id}')">Remarcar</button>`;
- const line=a=>{const s=DB.services.find(x=>x.id===a.serviceId);return `<div class="timeline"><div><b>${a.date} ${a.time}</b> <span class="pill p-${a.status}">${a.status}</span><br>${a.client} ${a.phone} • ${s?.name||''} ${money(s?.price)}<br>${acts(a.id)}</div></div>`;};
- if(agendaView==='dia'){const t=todayISO();el.innerHTML='<b>Hoje '+t+'</b>'+(list.filter(a=>a.date===t).map(line).join('')||'<p>Nada hoje.</p>');}
- if(agendaView==='semana'){let h='<div class="week-grid">';for(let i=0;i<7;i++){const dt=addDays(todayISO(),i);const day=list.filter(a=>a.date===dt);h+=`<div><b>${dt.slice(5)}<br>${WD[new Date(dt+'T12:00').getDay()]}</b><br>${day.map(a=>`• ${a.time} ${a.client} (${a.status})`).join('<br>')||'—'}</div>`;}el.innerHTML=h+'</div>';}
- if(agendaView==='mes'){el.innerHTML=list.slice(0,50).map(a=>`🔵 ${a.date} ${a.time} — ${a.client} [${a.status}] ${acts(a.id)}`).join('<br>')||'Vazio';}
-}
-window.admAct=(id,st)=>{DB.appointments.find(a=>a.id===id).status=st;save();slog('Agenda '+st+' '+id);paintAgenda();};
-window.admEdit=id=>{const a=DB.appointments.find(x=>x.id===id);const n=prompt('Nome',a.client);if(n)a.client=n;const o=prompt('Obs',a.note||'');if(o!==null)a.note=o;save();paintAgenda();};
-window.admRe=id=>{const a=DB.appointments.find(x=>x.id===id);const nd=prompt('Nova data AAAA-MM-DD',a.date);const nt=prompt('Nova hora HH:MM',a.time);if(!nd||!nt)return;const svc=DB.services.find(s=>s.id===a.serviceId);const slots=calculateAvailability(nd,svc?.duration||30);if(!slots.includes(nt)){alert('Conflito! Livres: '+slots.join(','));return;}a.date=nd;a.time=nt;a.end=toHM(toMin(nt)+(svc?.duration||30));save();slog('Remarcado '+id+' -> '+nd+' '+nt);paintAgenda();};
-function modalReserva(){const d=prompt('Data AAAA-MM-DD',todayISO());if(!d)return;const t=prompt('Hora HH:MM','09:00');const nm=prompt('Nome cliente','');const ph=prompt('Telefone','');if(!nm)return;const svcId=prompt('Serviço ID (opções: '+DB.services.map(s=>s.id+ '='+s.name).join(', ')+')',DB.services[0]?.id);const svc=DB.services.find(s=>s.id===svcId)||DB.services[0];if(!calculateAvailability(d,svc.duration).includes(t)){alert('Conflito nesse horário.');return;}DB.appointments.push({id:uid('a'),client:nm,phone:onlyDigits(ph),serviceId:svc.id,barber:'Renato Carriço',date:d,time:t,end:toHM(toMin(t)+svc.duration),note:'manual',status:'confirmado',createdAt:new Date().toISOString()});save();paintAgenda();toast('Reserva criada.');}
-function modalBloqueio(){const d=prompt('Data AAAA-MM-DD',todayISO());const s=prompt('Início HH:MM','12:00');const e=prompt('Fim HH:MM','13:00');const m=prompt('Motivo','Almoço');if(d&&s&&e){DB.blocks.push({id:uid('bl'),date:d,start:s,end:e,reason:m});save();paintAgenda();toast('Horário bloqueado.');}}
+  function applyProfile() {
+    const profile = state.profile;
+    document.title = `${profile.shop_name || 'Barbearia'} — Agendamento`;
+    $('#heroText').textContent = profile.description || DEMO.profile.description;
+    $('#addressText').textContent = profile.address || DEMO.profile.address;
+    $('#mapsLink').href = safeUrl(profile.maps_url, DEMO.profile.maps_url);
+    $('#instagramLink').href = safeUrl(profile.instagram_url, DEMO.profile.instagram_url);
+    $('#whatsappLink').href = `https://wa.me/${onlyDigits(profile.whatsapp_number)}?text=${encodeURIComponent('Olá! Gostaria de tirar uma dúvida sobre os horários.')}`;
+    $('#year').textContent = new Date().getFullYear();
+    $('#hoursList').innerHTML = [...state.hours].sort((a, b) => a.day_of_week - b.day_of_week).map(hour => {
+      const label = hour.is_open ? `${time(hour.opens_at)} — ${time(hour.closes_at)}` : 'Fechado';
+      return `<div class="hour-row"><span>${escapeHTML(DAYS[hour.day_of_week])}</span><span>${label}</span></div>`;
+    }).join('');
+  }
+  function safeUrl(value, fallback) { try { const url = new URL(value); return ['http:', 'https:'].includes(url.protocol) ? url.href : fallback; } catch { return fallback; } }
+  function serviceById(id) { return state.services.find(service => service.id === id); }
+  function hourForDate(date) { return state.hours.find(hour => hour.day_of_week === localDate(date).getDay()); }
 
-/* automações */
-function renderAuto(b){const A=DB.automation;
- b.innerHTML=`<h3>7. Automações</h3><div style="border:1px solid var(--line);border-radius:10px;padding:12px"><b>Lembrete Diário para Proprietário</b><br><small>Todo dia ${A.time} envia lembrete dos agendamentos do dia para 28 99913-7277 • America/Sao_Paulo</small><br><label><input type="checkbox" id="au_on" ${A.enabled?'checked':''}> Ativado / Desativado</label> <input type="time" id="au_time" value="${A.time}"><br><label class="f">TEMPLATE (variáveis {{nomeCliente}} {{telefoneCliente}} {{servico}} {{barbeiro}} {{data}} {{horario}} {{valor}})</label><textarea class="in" id="au_tpl" rows="4">${A.template}</textarea><div class="row"><button class="btn btn-gold btn-sm" id="au_save">Salvar</button><button class="btn btn-ghost btn-sm" id="au_now">Gerar hoje</button><button class="btn btn-ghost btn-sm" id="au_wa">Abrir WhatsApp proprietário</button><button class="btn btn-ghost btn-sm" id="au_ct">Marcar como contatado</button></div><div id="au_prev" style="margin-top:8px"></div><h4>Logs</h4><div style="font-size:12px">${A.logs.slice(0,20).map(l=>`${l.at} — ${l.msg}`).join('<br>')||'sem logs'}</div></div>`;
- $('#au_save').onclick=()=>{A.enabled=$('#au_on').checked;A.time=$('#au_time').value;A.template=$('#au_tpl').value;save();toast('Automação salva.');};
- const gen=()=>{const t=todayISO();const list=DB.appointments.filter(a=>a.date===t&&a.status!=='cancelado');
-  if(!list.length)return 'Nenhum agendamento hoje (cancelados não geram).';
-  return list.map(a=>{const s=DB.services.find(x=>x.id===a.serviceId);return A.template.replaceAll('{{nomeCliente}}',a.client).replaceAll('{{telefoneCliente}}',a.phone).replaceAll('{{servico}}',s?.name||'').replaceAll('{{barbeiro}}',a.barber||'Renato Carriço').replaceAll('{{data}}',a.date).replaceAll('{{horario}}',a.time).replaceAll('{{valor}}',money(s?.price));}).join('\n---\n');};
- $('#au_now').onclick=()=>{try{const txt=gen();$('#au_prev').innerHTML='<pre style="white-space:pre-wrap">'+txt+'</pre>';const t=todayISO();if(A.lastSentAt===t){A.logs.unshift({at:new Date().toLocaleString('pt-BR'),msg:'falha: duplicado bloqueado (lastSentAt='+t+')'});}else{A.lastSentAt=t;A.logs.unshift({at:new Date().toLocaleString('pt-BR'),msg:'gerado lembrete '+t});}save();renderTab();}catch(e){A.logs.unshift({at:new Date().toLocaleString('pt-BR'),msg:'falha: '+e.message});save();}};
- window._lastAutoTxt=gen();
- $('#au_wa').onclick=()=>{const txt=encodeURIComponent(typeof window._lastAutoTxt==='string'?window._lastAutoTxt:gen());window.open('https://wa.me/'+A.ownerPhone+'?text='+txt,'_blank');};
- $('#au_ct').onclick=()=>{A.contacted[todayISO()]=true;A.logs.unshift({at:new Date().toLocaleString('pt-BR'),msg:'marcado como contatado '+todayISO()});save();toast('Contatado.');};
-}
+  async function loadPublicData({ silent = false } = {}) {
+    if (!configured) { applyProfile(); setConnection('Modo de demonstração — configure o Supabase', 'offline'); renderBooking(); return; }
+    if (!silent) setConnection('Atualizando agenda…');
+    const [profileResult, servicesResult, hoursResult] = await Promise.all([
+      db.from('business_profile').select('*').eq('id', true).single(),
+      db.from('services').select('*').order('sort_order').order('name'),
+      db.from('business_hours').select('*').order('day_of_week')
+    ]);
+    const errors = [profileResult.error, servicesResult.error, hoursResult.error].filter(Boolean);
+    if (errors.length) { setConnection('Falha ao conectar ao banco', 'offline'); showToast(friendlyError(errors[0])); return; }
+    state.profile = profileResult.data || { ...DEMO.profile };
+    state.services = servicesResult.data || [];
+    state.hours = hoursResult.data || [];
+    applyProfile(); setConnection('Agenda conectada em tempo real', 'online'); renderBooking();
+  }
 
-/* segurança */
-function pwScore(p){let s=0;if(p.length>=8)s++;if(/[A-Z]/.test(p))s++;if(/[0-9]/.test(p))s++;return s;}
-function renderSec(b){const S=DB.security;const me=curAdmin();
- b.innerHTML=`<h3>🛡️ Segurança e Acesso</h3><div class="kv"><div style="border:1px solid var(--line);border-radius:10px;padding:12px"><b>🔑 Alterar Senha</b><br><label class="f">Senha atual</label><input class="in" id="s_cur" type="password"><label class="f">Nova senha</label><input class="in" id="s_new" type="password"><div class="strength"><i id="s_bar"></i></div><small id="s_req">min 8, 1 maiúscula, 1 número</small><label class="f">Confirmar</label><input class="in" id="s_c2" type="password"><div class="err" id="s_err"></div><label><input type="checkbox" id="s_out"> desconectar outros dispositivos</label><div style="height:8px"></div><button class="btn btn-bege" id="s_save" style="height:48px">SALVAR NOVA SENHA</button></div>
- <div style="border:1px solid var(--line);border-radius:10px;padding:12px"><b>👥 Acesso Admin Total</b> <button class="btn btn-gold btn-sm" id="u_new">+ Novo Admin</button><table class="t"><tr><th>Nome/Email</th><th>Função</th><th>Status</th><th>Ações</th></tr>${S.users.map(u=>`<tr><td>${u.name}<br><small>${u.email}</small></td><td>${u.role}</td><td>${u.active?'ativo':'off'}<br><small>${u.lastAccess||''}</small></td><td><button class="btn btn-ghost btn-sm" data-ue="${u.id}">Editar</button> <button class="btn btn-ghost btn-sm" data-ud="${u.id}">Desativar</button> <button class="btn btn-ghost btn-sm" data-ux="${u.id}">Excluir</button></td></tr>`).join('')}</table><small>Super Admin: acesso total irrestrito. Admin: tudo exceto admins. Barbeiro: só agenda.</small></div></div>
- <h4>Logs Segurança</h4><div class="row"><input class="in" id="lg_f" placeholder="filtrar" style="height:36px"><button class="btn btn-ghost btn-sm" id="lg_c">Limpar</button></div><div style="font-size:12px;max-height:150px;overflow:auto">${S.logs.map(l=>`${l.at} • ${l.user} • ${l.action} • ${l.status}`).join('<br>')}</div>
- <h4>Sessões Ativas</h4><div style="font-size:12px">${S.sessions.map(s=>`${s.id} • ${s.email} • ${s.at} <button data-kill="${s.id}">Encerrar</button>`).join('<br>')||'—'}</div>
- <div class="row" style="margin-top:8px"><label>Auto logout (min)<input type="number" id="s_auto" value="${S.autoLogoutMin}"></label><label><input type="checkbox" id="s_2fa" ${S.fa?'checked':''}> 2FA QR simulado</label></div><div id="qr">${S.fa?'<p>QR simulado: <b>RENATO-2FA-123456</b> — digite 123456 no login (simulação)</p>':''}</div>`;
- $('#s_new').addEventListener('input',e=>{const v=e.target.value;const s=pwScore(v);const c=['#555','#E05D5D','#E8A33D','#4CAF7D'][s];$('#s_bar').style.width=(s/3*100)+'%';$('#s_bar').style.background=c;$('#s_req').textContent=s<3?'fraca/média — min 8, 1 maiúscula, 1 número':'forte ✔';});
- $('#s_c2').addEventListener('input',e=>{e.target.style.borderColor=e.target.value!==$('#s_new').value?'red':'';});
- $('#s_save').onclick=()=>{if(hashSim($('#s_cur').value)!==me.passHash){$('#s_err').textContent='Senha atual incorreta.';return;}if(pwScore($('#s_new').value)<3){$('#s_err').textContent='Nova senha fraca.';return;}if($('#s_new').value!==$('#s_c2').value){$('#s_err').textContent='Confirmação difere.';return;}me.passHash=hashSim($('#s_new').value);if($('#s_out').checked)S.sessions=S.sessions.filter(s=>s.email!==me.email||s.id===sessionStorage.getItem('br_sess'));slog('Trocou senha','ok');save();toast('Senha salva.');renderTab();};
- $$('#tabBody [data-ud]').forEach(x=>x.onclick=()=>{if(me.role!=='Super Admin'){toast('Só Super Admin.');return;}const u=S.users.find(v=>v.id===x.dataset.ud);u.active=!u.active;save();renderTab();});
- $$('#tabBody [data-ux]').forEach(x=>x.onclick=()=>{if(me.role!=='Super Admin'){toast('Só Super Admin.');return;}confirmDlg('Excluir admin','Digite EXCLUIR para confirmar',`<input data-need="EXCLUIR" placeholder="EXCLUIR">`,()=>{S.users=S.users.filter(v=>v.id!==x.dataset.ux);save();renderTab();});});
- $$('#tabBody [data-ue]').forEach(x=>x.onclick=()=>{if(me.role!=='Super Admin'){toast('Só Super Admin.');return;}const u=S.users.find(v=>v.id===x.dataset.ue);const r=prompt('Função Super Admin/Admin/Barbeiro',u.role);if(r)u.role=r;save();renderTab();});
- $('#u_new').onclick=()=>{if(me.role!=='Super Admin'){toast('Só Super Admin.');return;}const n=prompt('Nome');const e=prompt('Email');const p=prompt('Senha (min 8)');const r=prompt('Função','Admin');if(n&&e&&p){S.users.push({id:uid('u'),name:n,email:e,passHash:hashSim(p),role:r||'Admin',active:true,perms:r==='Barbeiro'?['agenda']:['all'],lastAccess:null});save();renderTab();}};
- $('#lg_c').onclick=()=>confirmDlg('Limpar logs','Apagar todos os logs?', '',()=>{S.logs=[];save();renderTab();});
- $$('#tabBody [data-kill]').forEach(x=>x.onclick=()=>{S.users&&(S.sessions=S.sessions.filter(s=>s.id!==x.dataset.kill));save();renderTab();});
- $('#s_auto').onchange=e=>{S.autoLogoutMin=Number(e.target.value)||30;save();};
- $('#s_2fa').onchange=e=>{S.fa=e.target.checked;save();renderTab();};
- const cc=cloudCfg();
- b.innerHTML+=`<div style="border:1px solid var(--gold);border-radius:10px;padding:12px;margin-top:12px"><b>☁️ Nuvem / Multi-aparelhos (Supabase)</b><br><small>Status: <b id="cloudSt">${cloudOn()?'configurado':'modo local — configure para sincronizar'}</b> • <span id="cloudBadge"></span><br>Sem isso cada celular tem banco separado. Com isso tudo sincroniza.</small><label class="f">SUPABASE URL</label><input class="in" id="cl_url" value="${cc.url}" placeholder="https://xyz.supabase.co"><label class="f">ANON KEY</label><input class="in" id="cl_key" value="${cc.key}" placeholder="eyJ..."><div class="row" style="margin-top:8px"><button class="btn btn-gold btn-sm" id="cl_save">Salvar e sincronizar</button><button class="btn btn-ghost btn-sm" id="cl_test">Testar</button><button class="btn btn-ghost btn-sm" id="cl_pull">Puxar agora</button></div></div>`;
- $('#cl_save').onclick=async()=>{localStorage.setItem('br_cloud',JSON.stringify({url:$('#cl_url').value.trim(),key:$('#cl_key').value.trim()}));toast('Config salva. Sincronizando...');const ok=await cloudPull();renderPublicBase();renderTab();toast(ok?'Nuvem conectada!':'Falha — confira URL/key + schema.sql');};
- $('#cl_test').onclick=async()=>{localStorage.setItem('br_cloud',JSON.stringify({url:$('#cl_url').value.trim(),key:$('#cl_key').value.trim()}));try{await sb('store?id=eq.main&select=id');toast('Conexão OK!');}catch(e){toast('Falha: '+e.message);}};
- $('#cl_pull').onclick=async()=>{const ok=await cloudPull();renderPublicBase();renderTab();toast(ok?'Atualizado da nuvem.':'Nada / falha');};
-}
+  function subscribePublic() {
+    if (!configured || state.publicChannel) return;
+    state.publicChannel = db.channel('barbearia-public')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'availability_state' }, () => {
+        state.lastSlotQuery = '';
+        if (state.booking.step === 3) renderBooking();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, async () => { state.lastSlotQuery = ''; await loadPublicData({ silent: true }); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'business_hours' }, async () => { state.lastSlotQuery = ''; await loadPublicData({ silent: true }); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'business_profile' }, () => loadPublicData({ silent: true }))
+      .subscribe();
+  }
 
-/* login */
-$('#adminLink').onclick=e=>{e.preventDefault();$('#loginModal').hidden=false;};
-$('#loginClose').onclick=()=>$('#loginModal').hidden=true;
-$('#loginGo').onclick=()=>{
- const em=$('#loginEmail').value.trim(),pw=$('#loginPass').value;const S=DB.security;
- if(Date.now()<S.lockUntil){$('#loginErr').textContent='Bloqueado 15min após 5 falhas.';return;}
- const u=S.users.find(x=>x.email===em);
- if(!u||!u.active||u.passHash!==hashSim(pw)){S.attempts++;if(S.attempts>=5){S.lockUntil=Date.now()+15*60*1000;S.attempts=0;}save();$('#loginErr').textContent='Login inválido.';slog('Falha login '+em,'falha');return;}
- S.attempts=0;S.currentId=u.id;u.lastAccess=new Date().toLocaleString('pt-BR');
- const sess={id:uid('sess'),email:u.email,at:new Date().toLocaleString('pt-BR')};S.sessions.push(sess);sessionStorage.setItem('br_sess',sess.id);
- save();slog('Login '+em);$('#loginModal').hidden=true;openAdmin();renderPublicBase();
-};
-$('#admClose').onclick=()=>{$('#adminModal').hidden=true;};
-let lastAct=Date.now();document.addEventListener('click',()=>lastAct=Date.now());
-setInterval(()=>{const S=DB.security;if(!$('#adminModal').hidden&&Date.now()-lastAct>S.autoLogoutMin*60*1000){$('#adminModal').hidden=true;toast('Auto logout '+S.autoLogoutMin+'min.');}},30000);
+  function updateProgress() {
+    const { step } = state.booking;
+    $('#stepLabel').textContent = `PASSO ${step + 1} DE 4`;
+    $('#progressBar').style.width = `${(step + 1) * 25}%`;
+    $('#restartButton').hidden = step === 0;
+  }
+  function renderBooking() {
+    updateProgress();
+    const panel = $('#bookingPanel'); const { booking } = state;
+    if (booking.step === 0) {
+      panel.innerHTML = `<h2 class="panel-title">Vamos nos conhecer.</h2><p class="panel-description">Precisamos só do seu nome e WhatsApp para confirmar a reserva.</p>
+        <form id="customerForm" novalidate><label class="field-label" for="customerName">Seu nome</label><input class="field" id="customerName" maxlength="100" autocomplete="name" placeholder="Ex.: João da Silva" value="${escapeHTML(booking.name)}">
+        <label class="field-label" for="customerPhone">Seu WhatsApp</label><input class="field" id="customerPhone" inputmode="tel" autocomplete="tel" placeholder="(27) 99999-9999" value="${escapeHTML(maskPhone(booking.phone))}"><p class="form-error" id="customerError"></p>
+        <button class="primary-button" type="submit">Escolher serviço <span>→</span></button></form>`;
+      const phone = $('#customerPhone'); phone.addEventListener('input', () => { phone.value = maskPhone(phone.value); });
+      $('#customerForm').addEventListener('submit', event => {
+        event.preventDefault(); const name = $('#customerName').value.trim(); const digits = onlyDigits(phone.value); const error = $('#customerError');
+        if (name.length < 3) { error.textContent = 'Digite seu nome completo (ao menos 3 letras).'; return; }
+        if (digits.length < 10 || digits.length > 15) { error.textContent = 'Informe um WhatsApp válido com DDD.'; return; }
+        Object.assign(booking, { name, phone: digits, step: 1 }); renderBooking();
+      });
+    } else if (booking.step === 1) {
+      const services = state.services.filter(service => service.active);
+      panel.innerHTML = `<h2 class="panel-title">Qual será o cuidado?</h2><p class="panel-description">Todos os valores e tempos são definidos pela barbearia.</p><div class="service-grid">${services.map(service => `<button class="service-choice ${booking.serviceId === service.id ? 'selected' : ''}" type="button" data-service="${service.id}"><span><strong>${escapeHTML(service.name)}</strong><span>${escapeHTML(service.description || `${service.duration_minutes} minutos`)}</span></span><b>${money(service.price_cents)} · ${service.duration_minutes}min</b></button>`).join('') || '<p class="panel-description">Não há serviços disponíveis neste momento.</p>'}</div><div class="choice-footer"><button class="back-button" type="button" data-back>Voltar</button><button class="primary-button" type="button" id="serviceNext" ${booking.serviceId ? '' : 'disabled'}>Escolher dia <span>→</span></button></div>`;
+      $$('[data-service]', panel).forEach(button => button.addEventListener('click', () => { booking.serviceId = button.dataset.service; booking.date = ''; booking.slot = ''; renderBooking(); }));
+      $('[data-back]', panel).addEventListener('click', () => { booking.step = 0; renderBooking(); });
+      $('#serviceNext').addEventListener('click', () => { booking.step = 2; renderBooking(); });
+    } else if (booking.step === 2) {
+      const today = new Date(); const buttons = Array.from({ length: 21 }, (_, index) => {
+        const date = addDays(today, index); const iso = isoDate(date); const hour = hourForDate(iso); const closed = !hour?.is_open;
+        return `<button type="button" class="date-choice ${booking.date === iso ? 'selected' : ''}" data-date="${iso}" ${closed ? 'disabled' : ''}><b>${pad(date.getDate())}/${pad(date.getMonth() + 1)}</b><span>${SHORT_DAYS[date.getDay()]}${closed ? ' · FECHADO' : ''}</span></button>`;
+      }).join('');
+      panel.innerHTML = `<h2 class="panel-title">Quando fica melhor?</h2><p class="panel-description">A agenda abre para os próximos 21 dias.</p><div class="date-grid">${buttons}</div><div class="choice-footer"><button class="back-button" type="button" data-back>Voltar</button><button class="primary-button" type="button" id="dateNext" ${booking.date ? '' : 'disabled'}>Ver horários <span>→</span></button></div>`;
+      $$('[data-date]', panel).forEach(button => button.addEventListener('click', () => { booking.date = button.dataset.date; booking.slot = ''; renderBooking(); }));
+      $('[data-back]', panel).addEventListener('click', () => { booking.step = 1; renderBooking(); });
+      $('#dateNext').addEventListener('click', () => { booking.step = 3; renderBooking(); });
+    } else {
+      renderTimeStep();
+    }
+  }
 
-renderPublicBase();renderStep();setCloudBadge();
-(async()=>{if(cloudOn()){setCloudBadge('sincronizando...');const ok=await cloudPull();if(ok){renderPublicBase();renderStep();setCloudBadge('nuvem ok');}else setCloudBadge('modo local');}})();
-setInterval(async()=>{if(cloudOn()&&document.hidden===false){await cloudPull();renderPublicBase();if(!$('#adminModal').hidden&&curTab===5)paintAgenda();}},20000);
+  async function loadSlots() {
+    const { serviceId, date } = state.booking;
+    state.slotsLoading = true; state.slotsError = ''; renderTimeStep();
+    if (!configured) {
+      state.slots = ['08:30', '09:00', '09:30', '10:00', '10:30', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00']; state.slotsLoading = false; renderTimeStep(); return;
+    }
+    const { data, error } = await db.rpc('get_available_slots', { p_service_id: serviceId, p_date: date });
+    state.slotsLoading = false;
+    if (error) { state.slots = []; state.slotsError = friendlyError(error); } else { state.slots = (data || []).map(row => time(row.slot)); }
+    renderTimeStep();
+  }
+  function renderTimeStep() {
+    const panel = $('#bookingPanel'); const { booking } = state; const service = serviceById(booking.serviceId);
+    if (!service) { booking.step = 1; renderBooking(); return; }
+    const expected = booking.serviceId + booking.date;
+    if (!state.slotsLoading && state.lastSlotQuery !== expected) { state.lastSlotQuery = expected; loadSlots(); return; }
+    if (state.slotsLoading) { panel.innerHTML = loadingMarkup(); return; }
+    const slots = state.slots.map(slot => `<button type="button" class="time-choice ${booking.slot === slot ? 'selected' : ''}" data-slot="${slot}">${slot}</button>`).join('');
+    panel.innerHTML = `<h2 class="panel-title">Escolha o horário.</h2><p class="panel-description">${escapeHTML(formatDate(booking.date))} · ${escapeHTML(service.name)} (${service.duration_minutes} min)</p>${state.slotsError ? `<p class="form-error">${escapeHTML(state.slotsError)}</p>` : ''}<div class="time-grid">${slots || '<p class="panel-description">Não há horários livres nesta data. Escolha outro dia.</p>'}</div>${booking.slot ? `<div class="summary"><div class="summary-row"><span>Serviço</span><strong>${escapeHTML(service.name)}</strong></div><div class="summary-row"><span>Quando</span><strong>${escapeHTML(formatDate(booking.date))}, ${booking.slot}</strong></div><div class="summary-row"><span>Valor</span><strong>${money(service.price_cents)}</strong></div></div>` : ''}<p class="form-error" id="bookingError"></p><div class="choice-footer"><button class="back-button" type="button" data-back>Voltar</button><button class="primary-button" type="button" id="confirmBooking" ${booking.slot ? '' : 'disabled'}>Confirmar reserva <span>→</span></button></div>`;
+    $$('[data-slot]', panel).forEach(button => button.addEventListener('click', () => { booking.slot = button.dataset.slot; renderTimeStep(); }));
+    $('[data-back]', panel).addEventListener('click', () => { booking.step = 2; renderBooking(); });
+    $('#confirmBooking')?.addEventListener('click', createBooking);
+  }
+  async function createBooking() {
+    const errorElement = $('#bookingError');
+    if (!configured) { errorElement.textContent = 'Este é um modo de demonstração. Configure o Supabase para salvar reservas reais.'; return; }
+    const button = $('#confirmBooking'); button.disabled = true; button.textContent = 'Confirmando…';
+    const { booking } = state;
+    const { error } = await db.rpc('create_public_booking', { p_client_name: booking.name, p_phone: booking.phone, p_service_id: booking.serviceId, p_date: booking.date, p_time: booking.slot });
+    if (error) { state.lastSlotQuery = ''; errorElement.textContent = friendlyError(error); button.disabled = false; button.innerHTML = 'Confirmar reserva <span>→</span>'; return; }
+    const service = serviceById(booking.serviceId);
+    $('#bookingPanel').innerHTML = `<div class="success"><div class="success-mark">✓</div><h2 class="panel-title">Horário reservado.</h2><p>Pronto, ${escapeHTML(booking.name.split(' ')[0])}. Sua reserva de <strong>${escapeHTML(service.name)}</strong> foi confirmada para ${escapeHTML(formatDate(booking.date))}, às <strong>${booking.slot}</strong>.</p><p>Se precisar alterar algo, fale com a barbearia pelo WhatsApp.</p><button class="primary-button" type="button" id="newBooking">Fazer nova reserva <span>→</span></button></div>`;
+    $('#newBooking').addEventListener('click', resetBooking);
+    showToast('Reserva confirmada com sucesso.');
+  }
+  function resetBooking() { state.booking = { step: 0, name: '', phone: '', serviceId: '', date: '', slot: '' }; state.slots = []; state.lastSlotQuery = ''; renderBooking(); }
+
+  async function verifyStaff() {
+    if (!configured) return false;
+    const { data: { session } } = await db.auth.getSession(); state.session = session;
+    if (!session) return false;
+    const { data, error } = await db.from('profiles').select('id, display_name, role').eq('id', session.user.id).maybeSingle();
+    if (error || !data) { await db.auth.signOut(); state.session = null; return false; }
+    state.staffProfile = data; return true;
+  }
+  function openLogin() {
+    if (!configured) { showToast('Preencha SUPABASE_URL e SUPABASE_ANON_KEY para ativar o acesso seguro.'); return; }
+    $('#loginError').textContent = ''; $('#authDialog').showModal(); $('#emailInput').focus();
+  }
+  async function login(event) {
+    event.preventDefault(); const submit = $('#loginForm [type="submit"]'); const errorElement = $('#loginError');
+    submit.disabled = true; errorElement.textContent = '';
+    const { error } = await db.auth.signInWithPassword({ email: $('#emailInput').value.trim(), password: $('#passwordInput').value });
+    if (error) { errorElement.textContent = friendlyError(error); submit.disabled = false; return; }
+    if (!await verifyStaff()) { errorElement.textContent = 'Esta conta não tem perfil de administrador. Peça acesso ao proprietário.'; submit.disabled = false; return; }
+    $('#authDialog').close(); openAdmin();
+  }
+  async function openAdmin() {
+    if (!state.staffProfile && !await verifyStaff()) { openLogin(); return; }
+    $('#adminUser').textContent = state.staffProfile.display_name || state.session.user.email;
+    $('#adminDialog').showModal(); await loadAdminData(); subscribeAdmin(); renderAdmin();
+  }
+  async function loadAdminData() {
+    if (!configured || !state.session) return;
+    const start = `${state.adminDate}T00:00:00`; const end = `${state.adminDate}T23:59:59`;
+    const [appointmentsResult, blocksResult] = await Promise.all([
+      db.from('appointments').select('id, client_name, phone, starts_at, ends_at, status, notes, service:services(name, price_cents, duration_minutes)').gte('starts_at', start).lte('starts_at', end).order('starts_at'),
+      db.from('calendar_blocks').select('*').gte('starts_at', start).lte('starts_at', end).order('starts_at')
+    ]);
+    if (appointmentsResult.error || blocksResult.error) { showToast(friendlyError(appointmentsResult.error || blocksResult.error)); return; }
+    state.appointments = appointmentsResult.data || []; state.blocks = blocksResult.data || [];
+  }
+  function subscribeAdmin() {
+    if (!configured || state.channel) return;
+    state.channel = db.channel('barbearia-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, async () => { await loadAdminData(); if ($('#adminDialog').open && state.adminTab === 'agenda') renderAdmin(); state.lastSlotQuery = ''; })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, async () => { await loadPublicData({ silent: true }); if ($('#adminDialog').open && state.adminTab === 'services') renderAdmin(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'business_hours' }, async () => { await loadPublicData({ silent: true }); if ($('#adminDialog').open && state.adminTab === 'hours') renderAdmin(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'business_profile' }, () => loadPublicData({ silent: true }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_blocks' }, async () => { await loadAdminData(); if ($('#adminDialog').open && state.adminTab === 'agenda') renderAdmin(); })
+      .subscribe();
+  }
+  async function closeAdmin() { $('#adminDialog').close(); }
+  async function logout() { await db.auth.signOut(); state.session = null; state.staffProfile = null; if (state.channel) { await db.removeChannel(state.channel); state.channel = null; } $('#adminDialog').close(); showToast('Sessão encerrada.'); }
+
+  function renderAdmin() {
+    $$('.admin-tabs button').forEach(button => button.classList.toggle('active', button.dataset.tab === state.adminTab));
+    const panel = $('#adminPanel');
+    if (state.adminTab === 'agenda') renderAgenda(panel);
+    if (state.adminTab === 'services') renderServicesAdmin(panel);
+    if (state.adminTab === 'hours') renderHoursAdmin(panel);
+    if (state.adminTab === 'profile') renderProfileAdmin(panel);
+  }
+  function renderAgenda(panel) {
+    const appointmentRows = state.appointments.map(appointment => `<article class="appointment"><div class="appointment-time">${time(appointment.starts_at.slice(11))}<small>até ${time(appointment.ends_at.slice(11))}</small></div><div class="appointment-detail"><strong>${escapeHTML(appointment.client_name)}</strong><small>${escapeHTML(maskPhone(appointment.phone))}</small></div><div class="appointment-detail"><strong>${escapeHTML(appointment.service?.name || 'Serviço removido')}</strong><small><span class="status-pill ${escapeHTML(appointment.status)}">${statusLabel(appointment.status)}</span></small></div><div class="appointment-actions">${appointment.status !== 'completed' ? `<button class="small-button" data-status="completed" data-appointment="${appointment.id}">Concluir</button>` : ''}${appointment.status !== 'cancelled' ? `<button class="small-button" data-status="cancelled" data-appointment="${appointment.id}">Cancelar</button>` : ''}${appointment.status === 'cancelled' ? `<button class="small-button" data-status="confirmed" data-appointment="${appointment.id}">Reativar</button>` : ''}</div></article>`).join('');
+    const blockRows = state.blocks.map(block => `<article class="appointment"><div class="appointment-time">${time(block.starts_at.slice(11))}<small>até ${time(block.ends_at.slice(11))}</small></div><div class="appointment-detail"><strong>Horário bloqueado</strong><small>${escapeHTML(block.reason || 'Sem motivo informado')}</small></div><div><span class="status-pill cancelled">bloqueio</span></div></article>`).join('');
+    panel.innerHTML = `<div class="agenda-head"><div><h3>Atendimentos</h3><p>As reservas recebidas aparecem aqui automaticamente.</p></div><input class="date-filter" id="agendaDate" type="date" value="${state.adminDate}"></div><section class="appointment-list">${appointmentRows || '<p class="empty-state">Nenhum atendimento nesta data.</p>'}${blockRows}</section><section class="admin-form" style="margin-top:28px"><h3>Bloquear um intervalo</h3><p>Use para almoço, folga ou compromissos. Não bloqueia horários que já possuem reservas.</p><form id="blockForm" class="settings-grid"><div><label>Data</label><input id="blockDate" type="date" required value="${state.adminDate}"></div><div><label>Motivo</label><input id="blockReason" maxlength="160" placeholder="Ex.: compromisso"></div><div><label>Início</label><input id="blockStart" type="time" required value="12:00"></div><div><label>Fim</label><input id="blockEnd" type="time" required value="13:00"></div><div class="full form-footer"><button class="primary-button" type="submit">Bloquear horário <span>→</span></button><span class="form-hint" id="blockMessage"></span></div></form></section>`;
+    $('#agendaDate').addEventListener('change', async event => { state.adminDate = event.target.value; await loadAdminData(); renderAdmin(); });
+    $$('[data-status]', panel).forEach(button => button.addEventListener('click', () => setAppointmentStatus(button.dataset.appointment, button.dataset.status)));
+    $('#blockForm').addEventListener('submit', createBlock);
+  }
+  const statusLabel = status => ({ confirmed: 'confirmado', completed: 'concluído', cancelled: 'cancelado' }[status] || status);
+  async function setAppointmentStatus(id, status) {
+    const { error } = await db.rpc('set_appointment_status', { p_appointment_id: id, p_status: status });
+    if (error) { showToast(friendlyError(error)); return; } await loadAdminData(); renderAdmin(); showToast('Agenda atualizada.');
+  }
+  async function createBlock(event) {
+    event.preventDefault(); const message = $('#blockMessage'); const button = $('#blockForm button'); button.disabled = true; message.textContent = '';
+    const date = $('#blockDate').value; const start = $('#blockStart').value; const end = $('#blockEnd').value;
+    const { error } = await db.rpc('create_calendar_block', { p_starts_at: `${date}T${start}:00`, p_ends_at: `${date}T${end}:00`, p_reason: $('#blockReason').value.trim() });
+    button.disabled = false; if (error) { message.textContent = friendlyError(error); return; }
+    state.adminDate = date; await loadAdminData(); renderAdmin(); showToast('Intervalo bloqueado.');
+  }
+  function renderServicesAdmin(panel) {
+    panel.innerHTML = `<h3>Serviços</h3><p>Alterações são publicadas na tela de agendamento imediatamente.</p><section class="admin-form"><form id="newServiceForm" class="settings-grid"><div><label>Nome</label><input id="newServiceName" maxlength="80" required placeholder="Ex.: Sobrancelha"></div><div><label>Descrição</label><input id="newServiceDescription" maxlength="200" placeholder="Resumo do serviço"></div><div><label>Duração</label><select id="newServiceDuration"><option value="15">15 minutos</option><option value="30" selected>30 minutos</option><option value="45">45 minutos</option><option value="60">60 minutos</option><option value="75">75 minutos</option><option value="90">90 minutos</option><option value="120">120 minutos</option></select></div><div><label>Preço (R$)</label><input id="newServicePrice" type="number" min="0" max="10000" step="0.01" required placeholder="0,00"></div><div class="full form-footer"><button class="primary-button" type="submit">Adicionar serviço <span>→</span></button><span class="form-hint" id="serviceMessage"></span></div></form></section><section style="margin-top:30px">${state.services.map(service => `<form class="service-admin-row" data-service-form="${service.id}"><input data-field="name" maxlength="80" value="${escapeHTML(service.name)}" aria-label="Nome"><input data-field="duration" type="number" min="15" max="120" step="15" value="${service.duration_minutes}" aria-label="Duração em minutos"><input data-field="price" type="number" min="0" step="0.01" value="${(service.price_cents / 100).toFixed(2)}" aria-label="Preço em reais"><button class="small-button" type="submit">Salvar</button><label style="font:11px 'DM Mono',monospace;white-space:nowrap"><input data-field="active" type="checkbox" ${service.active ? 'checked' : ''}> ativo</label></form>`).join('') || '<p class="empty-state">Sem serviços cadastrados.</p>'}</section>`;
+    $('#newServiceForm').addEventListener('submit', addService);
+    $$('[data-service-form]', panel).forEach(form => form.addEventListener('submit', event => saveService(event, form.dataset.serviceForm)));
+  }
+  async function addService(event) {
+    event.preventDefault(); const message = $('#serviceMessage'); const name = $('#newServiceName').value.trim(); const price = Math.round(Number($('#newServicePrice').value) * 100);
+    const maxOrder = Math.max(0, ...state.services.map(item => item.sort_order || 0));
+    const { error } = await db.from('services').insert({ name, description: $('#newServiceDescription').value.trim(), duration_minutes: Number($('#newServiceDuration').value), price_cents: price, sort_order: maxOrder + 10 });
+    if (error) { message.textContent = friendlyError(error); return; }
+    await loadPublicData({ silent: true }); renderAdmin(); showToast('Serviço adicionado.');
+  }
+  async function saveService(event, id) {
+    event.preventDefault(); const form = event.currentTarget;
+    const duration = Number($('[data-field="duration"]', form).value); const price = Math.round(Number($('[data-field="price"]', form).value) * 100);
+    if (![15, 30, 45, 60, 75, 90, 120].includes(duration) || price < 0) { showToast('Confira duração e preço.'); return; }
+    const payload = { name: $('[data-field="name"]', form).value.trim(), duration_minutes: duration, price_cents: price, active: $('[data-field="active"]', form).checked };
+    const { error } = await db.from('services').update(payload).eq('id', id);
+    if (error) { showToast(friendlyError(error)); return; } await loadPublicData({ silent: true }); showToast('Serviço salvo.');
+  }
+  function renderHoursAdmin(panel) {
+    panel.innerHTML = `<h3>Horários de atendimento</h3><p>O intervalo de pausa não aparece como opção para os clientes.</p><form class="admin-form" id="hoursForm"><div class="hours-editor">${[0,1,2,3,4,5,6].map(day => { const hour = state.hours.find(item => item.day_of_week === day) || { day_of_week: day, is_open: false, opens_at: '08:30', closes_at: '18:00', break_starts_at: '', break_ends_at: '' }; return `<div class="hour-editor-row" data-day="${day}"><strong>${DAYS[day]}</strong><label><input data-open type="checkbox" ${hour.is_open ? 'checked' : ''}> aberto</label><input data-start type="time" value="${time(hour.opens_at)}" aria-label="Abertura"><input data-end type="time" value="${time(hour.closes_at)}" aria-label="Fechamento"><input data-break-start type="time" value="${time(hour.break_starts_at)}" aria-label="Pausa início"><input data-break-end type="time" value="${time(hour.break_ends_at)}" aria-label="Pausa fim"></div>`; }).join('')}</div><div class="form-footer"><button class="primary-button" type="submit">Salvar horários <span>→</span></button><span class="form-hint" id="hoursMessage"></span></div></form>`;
+    $('#hoursForm').addEventListener('submit', saveHours);
+  }
+  async function saveHours(event) {
+    event.preventDefault(); const message = $('#hoursMessage'); const rows = $$('[data-day]', event.currentTarget);
+    const values = rows.map(row => ({ day_of_week: Number(row.dataset.day), is_open: $('[data-open]', row).checked, opens_at: $('[data-start]', row).value, closes_at: $('[data-end]', row).value, break_starts_at: $('[data-break-start]', row).value || null, break_ends_at: $('[data-break-end]', row).value || null }));
+    if (values.some(row => !row.opens_at || !row.closes_at || row.closes_at <= row.opens_at || Boolean(row.break_starts_at) !== Boolean(row.break_ends_at))) { message.textContent = 'Confira abertura, fechamento e os dois campos de pausa.'; return; }
+    const { error } = await db.from('business_hours').upsert(values, { onConflict: 'day_of_week' });
+    if (error) { message.textContent = friendlyError(error); return; } await loadPublicData({ silent: true }); message.textContent = 'Horários salvos e sincronizados.'; showToast('Horários salvos.');
+  }
+  function renderProfileAdmin(panel) {
+    const profile = state.profile;
+    panel.innerHTML = `<h3>Perfil público</h3><p>Essas informações são exibidas para todos os visitantes.</p><p class="profile-status">● Publicação protegida por login e sincronizada em tempo real.</p><form class="admin-form" id="profileForm"><div class="settings-grid"><div><label>Nome da barbearia</label><input id="profileName" maxlength="100" required value="${escapeHTML(profile.shop_name)}"></div><div><label>WhatsApp (somente números)</label><input id="profileWhatsapp" inputmode="numeric" required value="${escapeHTML(profile.whatsapp_number)}"></div><div class="full"><label>Descrição</label><textarea id="profileDescription" maxlength="300">${escapeHTML(profile.description)}</textarea></div><div class="full"><label>Endereço</label><input id="profileAddress" maxlength="200" required value="${escapeHTML(profile.address)}"></div><div><label>Link do Maps</label><input id="profileMaps" type="url" required value="${escapeHTML(profile.maps_url)}"></div><div><label>Link do Instagram</label><input id="profileInstagram" type="url" required value="${escapeHTML(profile.instagram_url)}"></div></div><div class="form-footer"><button class="primary-button" type="submit">Salvar perfil <span>→</span></button><span class="form-hint" id="profileMessage"></span></div></form>`;
+    $('#profileForm').addEventListener('submit', saveProfile);
+  }
+  async function saveProfile(event) {
+    event.preventDefault(); const message = $('#profileMessage'); const whatsapp = onlyDigits($('#profileWhatsapp').value);
+    if (whatsapp.length < 10 || whatsapp.length > 15) { message.textContent = 'Informe o WhatsApp com DDD e código do país, se necessário.'; return; }
+    const payload = { shop_name: $('#profileName').value.trim(), description: $('#profileDescription').value.trim(), address: $('#profileAddress').value.trim(), maps_url: $('#profileMaps').value.trim(), instagram_url: $('#profileInstagram').value.trim(), whatsapp_number: whatsapp };
+    const { error } = await db.from('business_profile').update(payload).eq('id', true);
+    if (error) { message.textContent = friendlyError(error); return; } await loadPublicData({ silent: true }); message.textContent = 'Perfil salvo e publicado.'; showToast('Perfil atualizado.');
+  }
+
+  function bindEvents() {
+    $('#restartButton').addEventListener('click', resetBooking);
+    $('#adminButton').addEventListener('click', () => state.session ? openAdmin() : openLogin());
+    $('#loginForm').addEventListener('submit', login);
+    $('#closeAdminButton').addEventListener('click', closeAdmin);
+    $('#logoutButton').addEventListener('click', logout);
+    $$('.admin-tabs button').forEach(button => button.addEventListener('click', async () => { state.adminTab = button.dataset.tab; if (state.adminTab === 'agenda') await loadAdminData(); renderAdmin(); }));
+    window.addEventListener('focus', () => { if (configured) loadPublicData({ silent: true }); });
+  }
+  async function start() {
+    bindEvents(); applyProfile(); renderBooking();
+    if (!configured) { setConnection('Modo de demonstração — configure o Supabase', 'offline'); return; }
+    try { await loadPublicData(); subscribePublic(); if (await verifyStaff()) { $('#adminButton').textContent = 'Abrir agenda'; subscribeAdmin(); } }
+    catch (error) { setConnection('Falha ao conectar ao banco', 'offline'); showToast(friendlyError(error)); }
+  }
+  start();
+})();

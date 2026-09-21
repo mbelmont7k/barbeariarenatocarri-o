@@ -1,74 +1,111 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Renato Carriço Barbearia — Agendamento</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<header class="top container">
-  <div id="logoWrap"></div>
-  <div class="shop-name" id="shopName">RENATO CARRIÇO • BARBEARIA</div>
-  <h1 class="hero-phrase serif" id="heroPhrase">Estilo, precisão e café.</h1>
-  <p class="hero-sub" id="heroDesc">Corte, barba e cuidado — Anchieta / ES.</p>
-</header>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#11100e">
+    <meta name="description" content="Agende seu horário na Barbearia Renato Carriço.">
+    <title>Renato Carriço — Barbearia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:ital,wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="site-header shell">
+      <a class="brand" href="#inicio" aria-label="Renato Carriço Barbearia">
+        <span class="brand-mark">RC</span>
+        <span>RENATO CARRIÇO<small>BARBEARIA</small></span>
+      </a>
+      <div class="header-actions">
+        <a class="quiet-link" id="instagramLink" href="https://instagram.com" target="_blank" rel="noopener">Instagram ↗</a>
+        <button class="text-button" id="adminButton" type="button">Área do barbeiro</button>
+      </div>
+    </header>
 
-<main class="container">
-  <div class="book-card" id="bookCard">
-    <h2 id="bookTitle">Agende seu horário</h2>
-    <p class="sub" id="bookSub">Só nome e WhatsApp. Em 30 segundos.</p>
-    <div class="stepper" id="stepper"></div>
-    <div id="stepBody"></div>
-  </div>
+    <main id="inicio">
+      <section class="hero shell">
+        <div class="hero-copy">
+          <p class="eyebrow"><span></span> Anchieta, Espírito Santo</p>
+          <h1>Cada detalhe<br>faz o estilo.</h1>
+          <p class="hero-text" id="heroText">Corte, barba e uma pausa bem-feita. Escolha seu horário em poucos passos.</p>
+          <div class="hero-notes">
+            <span>✦ Atendimento com hora marcada</span>
+            <span>✦ Confirmação imediata</span>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="sun"></div><div class="arch arch-one"></div><div class="arch arch-two"></div>
+          <p>DESDE<br>2024</p>
+        </div>
+      </section>
 
-  <div class="sec2">
-    <div class="mini">
-      <h3 class="serif">Horário Hoje</h3>
-      <div id="todayHours" style="font-size:14px">—</div>
-      <div style="margin-top:10px"><button class="btn btn-ghost btn-sm" id="weekBtn">Ver semana completa</button></div>
-      <div id="weekFull" style="display:none;margin-top:10px;font-size:13px;color:var(--mut)"></div>
-    </div>
-    <div class="mini">
-      <h3 class="serif">Onde estamos</h3>
-      <div id="addrText" style="font-size:13px">Av. Atilio Rauta, 783 — Anchieta / ES</div>
-      <div class="map" id="mapBox" title="Abrir no Maps"><div style="text-align:center"><div class="pin">📍</div><small>Clique para abrir o mapa</small></div></div>
-      <div class="row"><button class="btn btn-ghost btn-sm" id="routeBtn">Como chegar</button>
-      <button class="btn btn-ghost btn-sm" id="socialBtn">📸 Abrir perfil</button></div>
-    </div>
-  </div>
-</main>
+      <section class="booking-section shell" aria-labelledby="bookingTitle">
+        <aside class="booking-intro">
+          <p class="eyebrow"><span></span> Reserva online</p>
+          <h2 id="bookingTitle">Seu próximo<br>visual começa aqui.</h2>
+          <p>Selecione o serviço, o dia e o melhor horário. A disponibilidade é atualizada em tempo real.</p>
+          <div class="location-card">
+            <span class="location-icon">⌖</span>
+            <p><strong id="addressText">Av. Atilio Rauta, 783</strong><br><span>Anchieta — ES</span></p>
+            <a id="mapsLink" href="#" target="_blank" rel="noopener" aria-label="Abrir localização no mapa">↗</a>
+          </div>
+        </aside>
 
-<footer><span id="foot">© Renato Carriço Barbearia</span> • <span id="cloudBadge" style="font-size:11px;border:1px solid var(--line2);border-radius:10px;padding:2px 8px">modo local</span> • <a href="#" id="adminLink">Acesso admin</a></footer>
+        <article class="booking-card">
+          <div class="booking-card-head">
+            <span class="step-label" id="stepLabel">PASSO 1 DE 4</span>
+            <button class="reset-button" type="button" id="restartButton" hidden>Recomeçar</button>
+          </div>
+          <div class="progress" aria-label="Progresso do agendamento"><i id="progressBar"></i></div>
+          <section id="bookingPanel" aria-live="polite"></section>
+        </article>
+      </section>
 
-<div class="modal" id="loginModal" hidden><div class="box">
-  <h3 class="serif">Segurança e Acesso</h3>
-  <label class="f">EMAIL</label><input class="in" id="loginEmail" value="admin@barbearia.com">
-  <label class="f">SENHA</label><input class="in" id="loginPass" type="password" value="admin123">
-  <div class="err" id="loginErr"></div>
-  <div style="height:10px"></div>
-  <button class="btn btn-bege" id="loginGo">ENTRAR</button>
-  <div style="height:8px"></div><button class="btn btn-ghost btn-sm" id="loginClose">Fechar</button>
-</div></div>
+      <section class="details shell" aria-label="Informações da barbearia">
+        <div><p class="eyebrow"><span></span> Horários</p><h3>Feito no seu tempo.</h3></div>
+        <div class="hours" id="hoursList"></div>
+        <div class="contact-block"><p>Ficou com alguma dúvida?</p><a id="whatsappLink" href="#" target="_blank" rel="noopener">Falar pelo WhatsApp ↗</a></div>
+      </section>
+    </main>
 
-<div class="modal" id="adminModal" hidden><div class="box large">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-    <h3 class="serif" style="margin:0">🛡️ Painel Admin — <span id="admUser"></span></h3>
-    <div><button class="btn btn-ghost btn-sm" id="admClose">Sair do painel</button></div>
-  </div>
-  <div class="admin-layout" style="margin-top:12px">
-    <div class="side" id="sideBar"></div>
-    <div id="tabBody" style="min-width:0"></div>
-  </div>
-</div></div>
+    <footer class="site-footer shell">
+      <span>© <span id="year"></span> Renato Carriço Barbearia</span>
+      <span class="connection-status" id="connectionStatus"><i></i> Carregando agenda</span>
+    </footer>
 
-<div class="modal" id="confirmModal" hidden><div class="box">
-  <h3 class="serif" id="cfTitle">Confirmar</h3><p id="cfMsg"></p>
-  <div id="cfExtra"></div>
-  <div class="row" style="margin-top:12px"><button class="btn btn-gold" id="cfOk">Confirmar</button><button class="btn btn-ghost" id="cfNo">Cancelar</button></div>
-</div></div>
+    <dialog id="authDialog" class="dialog">
+      <form method="dialog" class="dialog-card" id="loginForm">
+        <button class="dialog-close" value="cancel" aria-label="Fechar">×</button>
+        <p class="eyebrow"><span></span> Acesso restrito</p>
+        <h2>Área do barbeiro</h2>
+        <p class="dialog-text">Entre com a conta criada no Supabase para acompanhar sua agenda.</p>
+        <label>E-mail<input id="emailInput" type="email" autocomplete="email" required placeholder="voce@exemplo.com"></label>
+        <label>Senha<input id="passwordInput" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
+        <p class="form-error" id="loginError" role="alert"></p>
+        <button class="primary-button" type="submit">Entrar na agenda <span>→</span></button>
+      </form>
+    </dialog>
 
-<div class="toast" id="toast" hidden></div>
-<script src="supabase-config.js"></script>
-<script src="app.js"></script>
-</body>
+    <dialog id="adminDialog" class="dialog admin-dialog">
+      <div class="admin-card">
+        <header class="admin-header"><div><p class="eyebrow"><span></span> Gestão em tempo real</p><h2>Agenda</h2></div><div class="admin-actions"><span id="adminUser"></span><button class="outline-button" id="logoutButton" type="button">Sair</button><button class="dialog-close" id="closeAdminButton" type="button" aria-label="Fechar">×</button></div></header>
+        <nav class="admin-tabs" aria-label="Seções administrativas">
+          <button class="active" type="button" data-tab="agenda">Agenda</button>
+          <button type="button" data-tab="services">Serviços</button>
+          <button type="button" data-tab="hours">Horários</button>
+          <button type="button" data-tab="profile">Perfil</button>
+        </nav>
+        <div id="adminPanel" class="admin-panel"></div>
+      </div>
+    </dialog>
+
+    <template id="loadingTemplate"><div class="loading"><i></i><span>Atualizando informações…</span></div></template>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>

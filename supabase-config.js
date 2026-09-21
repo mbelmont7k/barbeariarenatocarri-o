@@ -1,6 +1,6 @@
-// Cole aqui os dados do Supabase (ou configure no Admin > Segurança > Nuvem)
-// 1. Crie projeto em https://supabase.com
-// 2. Rode o schema.sql no SQL Editor
-// 3. Pegue Project URL + anon key em Settings > API
-window.SUPABASE_URL = "";
-window.SUPABASE_ANON_KEY = "";
+/*
+ * Esta chave é pública por design: as regras de acesso estão no schema.sql.
+ * Nunca coloque aqui a service_role key.
+ */
+window.SUPABASE_URL = "https://qztgybmqbgmkzkkdvoqn.supabase.co";
+window.SUPABASE_ANON_KEY = "sb_publishable_72V5hGAs29p2WOMahrIHlw_TnG4wkMF";
